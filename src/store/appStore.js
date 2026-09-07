@@ -90,6 +90,7 @@ export const useAppStore = create((set, get) => ({
 
   setTotalDays: async (days) => {
     const { eventId } = get()
+    if (eventId === null || eventId === undefined) return
     const { error } = await supabase.from('events').update({ total_days: days }).eq('id', eventId)
     if (error) { console.error('setTotalDays error:', error); return }
     set({ totalDays: days })
@@ -98,7 +99,7 @@ export const useAppStore = create((set, get) => ({
       .from('pooja_days')
       .select('day_number')
       .eq('event_id', eventId)
-    const existingNumbers = new Set((existingDays || []).map(d => d.day_number))
+    const existingNumbers = new Set((existingDays || []).map(function(d) { return d.day_number }))
 
     const samples = ['Flowers, incense & coconut', 'Banana & jaggery', 'Rice & dal', 'Sweets & dairy']
     for (let i = 1; i <= days; i++) {
