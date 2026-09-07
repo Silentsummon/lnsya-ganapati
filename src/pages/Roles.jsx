@@ -18,7 +18,7 @@ export default function Roles() {
 
       <button className="role-card" onClick={() => navigate('/volunteer')}>
         <div className="role-card-title">Volunteer</div>
-        <div className="role-card-sub">Updates &amp; chandha collection — no PIN needed</div>
+        <div className="role-card-sub">Utsav Schedule &amp; chandha collection — no PIN needed</div>
       </button>
     </div>
   )

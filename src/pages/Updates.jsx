@@ -22,7 +22,7 @@ export default function Updates() {
       <div className="back-btn" onClick={() => navigate('/')}>
         <span className="back-circle">&#8592;</span> Back
       </div>
-      <h1 style={{ color: '#fff', fontSize: '1.6rem', marginBottom: '1.5rem' }}>Ganpati Schedule</h1>
+      <h1 style={{ color: '#fff', fontSize: '1.6rem', marginBottom: '1.5rem' }}>Utsav Schedule</h1>
 
       {visibleDays.map(day => {
         const isOpen = expanded === day.id

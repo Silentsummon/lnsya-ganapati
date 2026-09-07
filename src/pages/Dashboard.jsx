@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAppStore } from '../store/appStore'
+import jsPDF from 'jspdf'
+import autoTable from 'jspdf-autotable'
 
 function formatDate(dateStr) {
   if (!dateStr) return null
@@ -72,7 +74,7 @@ export default function Dashboard({ forcedRole }) {
       {userRole === 'volunteer' && (
         <>
           <div className="tabs">
-            <button className={`tab ${tab === 'updates' ? 'active' : ''}`} onClick={() => setTab('updates')}>Updates</button>
+            <button className={`tab ${tab === 'updates' ? 'active' : ''}`} onClick={() => setTab('updates')}>Utsav Schedule</button>
             <button className={`tab ${tab === 'chandha' ? 'active' : ''}`} onClick={() => setTab('chandha')}>Chandha</button>
           </div>
           {tab === 'updates' && <VolunteerUpdates days={visibleDays} />}
@@ -356,6 +358,59 @@ function VolunteerChandha({ chandha, addChandha }) {
   const [street, setStreet] = useState('')
   const [amount, setAmount] = useState('')
   const [status, setStatus] = useState('Paid')
+  const [expandedId, setExpandedId] = useState(null)
+
+  const formatDate = (dateStr) => {
+    if (!dateStr) return '-'
+    const d = new Date(dateStr)
+    const day = String(d.getDate()).padStart(2, '0')
+    const month = String(d.getMonth() + 1).padStart(2, '0')
+    const year = d.getFullYear()
+    return `${day}/${month}/${year}`
+  }
+
+  const exportCSV = () => {
+    const headers = ['Name', 'Phone', 'Street', 'Amount', 'Status', 'Date Added']
+    const rows = chandha.map(c => [
+      c.name, c.phone, c.street, c.amount, c.status, formatDate(c.created_at)
+    ])
+    const csvContent = [headers, ...rows]
+      .map(row => row.map(val => `"${String(val ?? '').replace(/"/g, '""')}"`).join(','))
+      .join(String.fromCharCode(10))
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.setAttribute('download', `chandha-collection-${new Date().toISOString().split('T')[0]}.csv`)
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+  }
+
+  const exportPDF = () => {
+    const doc = new jsPDF()
+    doc.setFontSize(16)
+    doc.text('Chandha Collection', 14, 16)
+    doc.setFontSize(10)
+    doc.text(`Generated: ${formatDate(new Date().toISOString())}`, 14, 22)
+
+    autoTable(doc, {
+      startY: 28,
+      head: [['Name', 'Phone', 'Street', 'Amount', 'Status', 'Date Added']],
+      body: chandha.map(c => [
+        c.name, c.phone, c.street, `Rs. ${c.amount}`, c.status, formatDate(c.created_at)
+      ]),
+      styles: { fontSize: 9 },
+      headStyles: { fillColor: [180, 83, 9] },
+    })
+
+    const total = chandha.reduce((s, c) => s + Number(c.amount), 0)
+    const finalY = doc.lastAutoTable.finalY || 30
+    doc.setFontSize(11)
+    doc.text(`Total Collected: Rs. ${total}`, 14, finalY + 10)
+
+    doc.save(`chandha-collection-${new Date().toISOString().split('T')[0]}.pdf`)
+  }
 
   return (
     <div>
@@ -386,16 +441,53 @@ function VolunteerChandha({ chandha, addChandha }) {
       </div>
 
       <div className="card">
-        <div className="card-title">Collection List</div>
-        {chandha.map(c => (
-          <div className="list-row" key={c.id}>
-            <div><div className="list-row-name">{c.name}</div><div className="list-row-sub">{c.phone} • {c.street}</div></div>
-            <div style={{ textAlign: 'right' }}>
-              <div className="list-row-amount">₹{c.amount}</div>
-              <span className={`status-pill ${c.status === 'Paid' ? 'paid' : 'pending'}`}>{c.status}</span>
-            </div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap', gap: '0.6rem' }}>
+          <div className="card-title" style={{ marginBottom: 0 }}>Collection List</div>
+          <div className="btn-row">
+            <button className="btn" onClick={exportCSV} style={{ fontSize: '0.7rem', padding: '0.5rem 1rem' }}>Export CSV</button>
+            <button className="btn" onClick={exportPDF} style={{ fontSize: '0.7rem', padding: '0.5rem 1rem' }}>Export PDF</button>
           </div>
-        ))}
+        </div>
+
+        {chandha.length === 0 && <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: '0.85rem' }}>No entries yet.</p>}
+
+        {chandha.map(c => {
+          const isOpen = expandedId === c.id
+          return (
+            <div key={c.id} style={{ marginBottom: '0.5rem' }}>
+              <div
+                className="list-row"
+                style={{ cursor: 'pointer', marginBottom: isOpen ? 0 : undefined, borderBottomLeftRadius: isOpen ? 0 : undefined, borderBottomRightRadius: isOpen ? 0 : undefined }}
+                onClick={() => setExpandedId(isOpen ? null : c.id)}
+              >
+                <div><div className="list-row-name">{c.name}</div><div className="list-row-sub">{c.phone} • {c.street}</div></div>
+                <div style={{ textAlign: 'right', display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                  <div>
+                    <div className="list-row-amount">₹{c.amount}</div>
+                    <span className={`status-pill ${c.status === 'Paid' ? 'paid' : 'pending'}`}>{c.status}</span>
+                  </div>
+                  <span style={{ fontSize: '0.9rem', transform: isOpen ? 'rotate(90deg)' : 'none', transition: 'transform 0.2s', opacity: 0.7 }}>&#8250;</span>
+                </div>
+              </div>
+              {isOpen && (
+                <div style={{
+                  background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.25)', borderTop: 'none',
+                  borderBottomLeftRadius: '0.6rem', borderBottomRightRadius: '0.6rem',
+                  padding: '0.8rem 1rem', fontSize: '0.8rem',
+                }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '0.6rem' }}>
+                    <div><span style={{ opacity: 0.6 }}>Full Name:</span> <strong>{c.name}</strong></div>
+                    <div><span style={{ opacity: 0.6 }}>Phone:</span> <strong>{c.phone || '-'}</strong></div>
+                    <div><span style={{ opacity: 0.6 }}>Street:</span> <strong>{c.street || '-'}</strong></div>
+                    <div><span style={{ opacity: 0.6 }}>Amount:</span> <strong>₹{c.amount}</strong></div>
+                    <div><span style={{ opacity: 0.6 }}>Status:</span> <strong>{c.status}</strong></div>
+                    <div><span style={{ opacity: 0.6 }}>Date Added:</span> <strong>{formatDate(c.created_at)}</strong></div>
+                  </div>
+                </div>
+              )}
+            </div>
+          )
+        })}
       </div>
     </div>
   )

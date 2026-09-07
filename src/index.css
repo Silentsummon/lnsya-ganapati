@@ -164,8 +164,8 @@ input:focus, textarea:focus, select:focus { outline: none; border-color: rgba(25
 }
 .stat-label { font-size: 0.68rem; color: rgba(255,255,255,0.75); letter-spacing: 0.05em; margin-bottom: 0.3rem; }
 .stat-value { font-size: 1.1rem; font-weight: 800; color: #fff; }
-.stat-box.deficit .stat-value { color: #dc2626; }
-.stat-box.surplus .stat-value { color: #15803d; }
+.stat-box.deficit .stat-value { color: #dc2626; font-weight: 800; }
+.stat-box.surplus .stat-value { color: #15803d; font-weight: 800; }
 
 .list-row { display: flex; justify-content: space-between; align-items: center; padding: 0.8rem; background: rgba(255,255,255,0.14); border-radius: 0.6rem; margin-bottom: 0.5rem; border: 1px solid rgba(255,255,255,0.3); }
 .list-row-name { color: #fff; font-weight: 700; font-size: 0.85rem; }
@@ -256,7 +256,3 @@ body {
 input, textarea, select {
   font-family: 'Manrope', sans-serif;
 }
-
-/* Darker tinted backgrounds for surplus/deficit/pending states */
-.stat-box.deficit { background: rgba(220,38,38,0.18); border-color: rgba(220,38,38,0.4); }
-.stat-box.surplus { background: rgba(21,128,61,0.18); border-color: rgba(21,128,61,0.4); }

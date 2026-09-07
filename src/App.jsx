@@ -16,7 +16,7 @@ function TopNav() {
 
   const items = [
     { path: '/', label: 'Home' },
-    { path: '/updates', label: 'Updates' },
+    { path: '/updates', label: 'Utsav Schedule' },
     { path: '/roles', label: 'Team Access' },
   ]
   if (isLoggedIn) items.push({ path: '/dashboard', label: 'Dashboard' })
