@@ -42,14 +42,20 @@ export const useAppStore = create((set, get) => ({
           .order('day_number')
         set({ poojasDays: days || [] })
 
-        const { data: people } = await supabase
-          .from('pooja_people')
-          .select('*')
-          .eq('event_id', event.id)
+        const dayIds = (days || []).map(d => d.id)
+        let people = []
+        if (dayIds.length > 0) {
+          const { data: peopleData, error: peopleErr } = await supabase
+            .from('pooja_people')
+            .select('*')
+            .in('pooja_day_id', dayIds)
+          if (peopleErr) console.error('fetch pooja_people error:', peopleErr)
+          people = peopleData || []
+        }
         const grouped = {}
-        ;(people || []).forEach(p => {
-          if (!grouped[p.day_id]) grouped[p.day_id] = []
-          grouped[p.day_id].push(p)
+        people.forEach(p => {
+          if (!grouped[p.pooja_day_id]) grouped[p.pooja_day_id] = []
+          grouped[p.pooja_day_id].push(p)
         })
         set({ poojaPeople: grouped })
 
@@ -128,12 +134,12 @@ export const useAppStore = create((set, get) => ({
   },
 
   addPerson: async (dayId, name, phone, lane) => {
-    const { eventId, poojaPeople } = get()
+    const { poojaPeople } = get()
     const existing = poojaPeople[dayId] || []
     if (existing.length >= 2) return
     const { data, error } = await supabase
       .from('pooja_people')
-      .insert([{ event_id: eventId, day_id: dayId, name, phone, lane }])
+      .insert([{ pooja_day_id: dayId, name, phone, lane }])
       .select()
       .single()
     if (error || !data) { console.error('addPerson error:', error); return }
