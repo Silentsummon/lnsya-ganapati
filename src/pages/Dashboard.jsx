@@ -19,7 +19,7 @@ export default function Dashboard({ forcedRole }) {
     totalDays, setTotalDays, poojasDays, updatePoojaDay, setAllDates,
     poojaPeople, addPerson, deletePerson,
     budget, setBudget, expenses, addExpense,
-    chandha, addChandha,
+    chandha, addChandha, broadcastToChandha,
   } = useAppStore()
 
   const [userRole, setUserRole] = useState(forcedRole || '')
@@ -55,6 +55,7 @@ export default function Dashboard({ forcedRole }) {
           days={visibleDays} updatePoojaDay={updatePoojaDay}
           poojaPeople={poojaPeople} addPerson={addPerson} deletePerson={deletePerson}
           setAllDates={setAllDates}
+          chandha={chandha} broadcastToChandha={broadcastToChandha}
         />
       )}
 
@@ -86,7 +87,7 @@ export default function Dashboard({ forcedRole }) {
   )
 }
 
-function PresidentPanel({ totalDays, setTotalDays, days, updatePoojaDay, poojaPeople, addPerson, deletePerson, setAllDates }) {
+function PresidentPanel({ totalDays, setTotalDays, days, updatePoojaDay, poojaPeople, addPerson, deletePerson, setAllDates, chandha, broadcastToChandha }) {
   const [editingTotal, setEditingTotal] = useState(false)
   const [totalInput, setTotalInput] = useState(String(totalDays))
   const [expandedDay, setExpandedDay] = useState(null)
@@ -119,6 +120,8 @@ function PresidentPanel({ totalDays, setTotalDays, days, updatePoojaDay, poojaPe
 
       <StartDateSetter setAllDates={setAllDates} />
 
+      <BroadcastPanel chandha={chandha} broadcastToChandha={broadcastToChandha} />
+
       {days.length === 0 && <p style={{ color: 'rgba(255,255,255,0.45)', textAlign: 'center', padding: '2rem 0', fontSize: '0.85rem' }}>Set overall days above to get started</p>}
 
       {days.map(day => (
@@ -133,6 +136,69 @@ function PresidentPanel({ totalDays, setTotalDays, days, updatePoojaDay, poojaPe
           updatePoojaDay={updatePoojaDay}
         />
       ))}
+    </div>
+  )
+}
+
+function BroadcastPanel({ chandha, broadcastToChandha }) {
+  const [showForm, setShowForm] = useState(false)
+  const [message, setMessage] = useState('')
+  const [sending, setSending] = useState(false)
+  const [result, setResult] = useState(null)
+
+  const uniqueCount = (() => {
+    const seen = new Set()
+    for (const c of chandha) {
+      const phone = (c.phone || '').trim()
+      if (phone) seen.add(phone)
+    }
+    return seen.size
+  })()
+
+  const handleSend = async () => {
+    if (!message.trim()) return
+    setSending(true)
+    setResult(null)
+    const res = await broadcastToChandha(message.trim())
+    setSending(false)
+    setResult(res)
+    if (res.success) setMessage('')
+  }
+
+  return (
+    <div className="section-box" style={{ marginBottom: '1.25rem' }}>
+      <div className="section-label amber">Broadcast to Chandha Contributors ({uniqueCount} unique numbers)</div>
+      {!showForm ? (
+        <button className="link-btn amber" onClick={() => setShowForm(true)}>+ Send Announcement to Everyone</button>
+      ) : (
+        <div>
+          <textarea
+            className="mini-input"
+            rows={3}
+            value={message}
+            onChange={e => setMessage(e.target.value)}
+            placeholder="e.g. Homam tomorrow at 6 AM, please arrive by 5:45"
+          />
+          <div className="btn-row">
+            <button className="btn" disabled={sending} onClick={handleSend} style={{ flex: 1 }}>
+              {sending ? 'Sending...' : `Send to All (${uniqueCount})`}
+            </button>
+            <button className="btn" onClick={() => { setShowForm(false); setResult(null) }} style={{ flex: 1 }}>
+              Cancel
+            </button>
+          </div>
+          {result && result.success && (
+            <div style={{ color: '#bbf7d0', fontSize: '0.78rem', marginTop: '0.6rem' }}>
+              ✓ [Dummy] Would have sent to {result.count} number(s). Check browser console for details.
+            </div>
+          )}
+          {result && !result.success && (
+            <div style={{ color: '#fecaca', fontSize: '0.78rem', marginTop: '0.6rem' }}>
+              {result.error}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   )
 }

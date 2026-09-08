@@ -225,4 +225,32 @@ export const useAppStore = create((set, get) => ({
     if (error || !data) { console.error('addChandha error:', error); return }
     set({ chandha: [data, ...chandha] })
   },
+
+  // DUMMY broadcast — logs to console instead of sending via WhatsApp.
+  // Swap the inside of this function for a real API call once WhatsApp server is ready.
+  broadcastToChandha: async (message) => {
+    const { chandha } = get()
+    if (!message || !message.trim()) {
+      return { success: false, error: 'Message is empty' }
+    }
+
+    // Dedupe by phone number, skip blanks
+    const seen = new Set()
+    const recipients = []
+    for (const c of chandha) {
+      const phone = (c.phone || '').trim()
+      if (!phone) continue
+      if (seen.has(phone)) continue
+      seen.add(phone)
+      recipients.push({ name: c.name, phone })
+    }
+
+    // --- DUMMY SEND ---
+    console.log('[DUMMY BROADCAST] Message:', message)
+    console.log('[DUMMY BROADCAST] Would send to', recipients.length, 'unique numbers:')
+    console.table(recipients)
+    // --- END DUMMY SEND ---
+
+    return { success: true, count: recipients.length, recipients }
+  },
 }))
