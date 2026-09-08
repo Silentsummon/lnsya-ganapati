@@ -13,8 +13,7 @@ function formatDate(dateStr) {
 
 export default function Updates() {
   const navigate = useNavigate()
-  const { poojasDays, totalDays, poojaPeople, addPerson } = useAppStore()
-  const [expanded, setExpanded] = useState(null)
+  const { poojasDays, totalDays, poojaCheckins, checkInSlot } = useAppStore()
   const visibleDays = poojasDays.filter(d => d.day_number <= totalDays)
 
   return (
@@ -25,57 +24,30 @@ export default function Updates() {
       <h1 style={{ color: '#fff', fontSize: '1.6rem', marginBottom: '1.5rem' }}>Utsav Schedule</h1>
 
       {visibleDays.map(day => {
-        const isOpen = expanded === day.id
         const dateLabel = formatDate(day.pooja_date)
-        const people = poojaPeople[day.id] || []
+        const checkins = poojaCheckins[day.id] || []
+        const entry1 = checkins.find(c => c.slot_number === 1)
+        const entry2 = checkins.find(c => c.slot_number === 2)
 
         return (
-          <div className="day-card" key={day.id}>
-            <button className="day-header" onClick={() => setExpanded(isOpen ? null : day.id)}>
-              <div className="day-header-left">
-                <div className="day-badge">D{day.day_number}</div>
-                <div>
-                  <div className="day-title">Day {day.day_number}</div>
-                  <div className="day-sub">{dateLabel || 'Date not set yet'}</div>
-                </div>
+          <div className="day-card" key={day.id} style={{ padding: '1.1rem 1.3rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.9rem', marginBottom: '0.9rem' }}>
+              <div className="day-badge">D{day.day_number}</div>
+              <div>
+                <div className="day-title">Day {day.day_number}</div>
+                <div className="day-sub">{dateLabel || 'Date not set yet'}</div>
               </div>
-              <span className={`day-chevron ${isOpen ? 'open' : ''}`}>&#8250;</span>
-            </button>
+            </div>
 
-            {isOpen && (
-              <div className="day-body">
-                <div className="day-body-section">
-                  <div className="day-body-label">What to Bring</div>
-                  <div className="day-body-text">{day.what_to_bring}</div>
-                </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '0.7rem' }}>
+              <CheckInBox dayId={day.id} slotNumber={1} entry={entry1} checkInSlot={checkInSlot} />
+              <CheckInBox dayId={day.id} slotNumber={2} entry={entry2} checkInSlot={checkInSlot} />
+            </div>
 
-                <div className="day-body-section">
-                  <div className="day-body-label">Pooja People ({people.length}/2)</div>
-                  {people.length === 0 && (
-                    <div className="day-body-text" style={{ opacity: 0.6, marginBottom: '0.5rem' }}>Not assigned yet</div>
-                  )}
-                  {people.map(p => (
-                    <div key={p.id} className="day-body-text" style={{ marginBottom: '0.3rem' }}>
-                      {p.name} — {p.phone} • {p.lane}
-                    </div>
-                  ))}
-
-                  {people.length < 2 && (
-                    <SignupForm dayId={day.id} addPerson={addPerson} />
-                  )}
-                  {people.length >= 2 && (
-                    <div style={{ color: 'rgba(255,255,255,0.55)', fontSize: '0.75rem', marginTop: '0.4rem' }}>
-                      Both slots for this day are filled.
-                    </div>
-                  )}
-                </div>
-
-                {day.announcement_title && (
-                  <div className="announcement-box">
-                    <div className="announcement-title">{day.announcement_title}</div>
-                    <div className="announcement-msg">{day.announcement_message}</div>
-                  </div>
-                )}
+            {day.announcement_title && (
+              <div className="announcement-box" style={{ marginTop: '0.9rem' }}>
+                <div className="announcement-title">{day.announcement_title}</div>
+                <div className="announcement-msg">{day.announcement_message}</div>
               </div>
             )}
           </div>
@@ -91,46 +63,74 @@ export default function Updates() {
   )
 }
 
-function SignupForm({ dayId, addPerson }) {
+function CheckInBox({ dayId, slotNumber, entry, checkInSlot }) {
   const [showForm, setShowForm] = useState(false)
   const [name, setName] = useState('')
   const [phone, setPhone] = useState('')
-  const [lane, setLane] = useState('')
+  const [groupSize, setGroupSize] = useState('2')
   const [submitting, setSubmitting] = useState(false)
-  const [done, setDone] = useState(false)
+  const [error, setError] = useState('')
 
-  const handleSubmit = async () => {
-    if (!name.trim() || !phone.trim() || !lane.trim()) return
+  const handleConfirm = async () => {
+    setError('')
+    if (!name.trim() || !phone.trim()) {
+      setError('Please fill in your name and phone.')
+      return
+    }
     setSubmitting(true)
-    await addPerson(dayId, name.trim(), phone.trim(), lane.trim())
+    const res = await checkInSlot(dayId, slotNumber, name.trim(), phone.trim(), parseInt(groupSize))
     setSubmitting(false)
-    setDone(true)
+    if (!res.success) {
+      setError(res.error || 'Something went wrong.')
+    }
   }
 
-  if (done) {
+  if (entry) {
     return (
-      <div style={{ color: '#bbf7d0', fontSize: '0.8rem', marginTop: '0.5rem', fontWeight: 600 }}>
-        ✓ You're checked in for this day!
+      <div style={{
+        background: '#e9f9ee', border: '1px solid #86d9a3', borderRadius: '0.6rem',
+        padding: '0.8rem 1rem',
+      }}>
+        <div style={{ color: '#15803d', fontWeight: 700, fontSize: '0.8rem', marginBottom: '0.2rem' }}>
+          ✓ Checked In
+        </div>
+        <div style={{ color: '#166534', fontSize: '0.8rem' }}>
+          {entry.name} • {entry.group_size} {entry.group_size === 1 ? 'person' : 'people'}
+        </div>
       </div>
     )
   }
 
-  if (!showForm) {
-    return (
-      <button className="link-btn" onClick={() => setShowForm(true)}>
-        + Check In for This Day
-      </button>
-    )
-  }
-
   return (
-    <div style={{ marginTop: '0.5rem', paddingTop: '0.5rem', borderTop: '1px solid rgba(255,255,255,0.2)' }}>
-      <input className="mini-input" type="text" value={name} onChange={e => setName(e.target.value)} placeholder="Your name" />
-      <input className="mini-input" type="tel" value={phone} onChange={e => setPhone(e.target.value)} placeholder="Phone number" />
-      <input className="mini-input" type="text" value={lane} onChange={e => setLane(e.target.value)} placeholder="Lane/Area" />
-      <button className="btn" style={{ width: '100%' }} disabled={submitting} onClick={handleSubmit}>
-        {submitting ? 'Submitting...' : 'Confirm Check-In'}
-      </button>
+    <div style={{
+      background: '#fafafa', border: '1px solid #e5e5e5', borderRadius: '0.6rem',
+      padding: '0.8rem 1rem',
+    }}>
+      {!showForm ? (
+        <button className="link-btn" onClick={() => setShowForm(true)} style={{ width: '100%', textAlign: 'left' }}>
+          + Participate in Pooja
+        </button>
+      ) : (
+        <div>
+          <input className="mini-input" type="text" value={name} onChange={e => setName(e.target.value)} placeholder="Your name" />
+          <input className="mini-input" type="tel" value={phone} onChange={e => setPhone(e.target.value)} placeholder="Phone number" />
+          <select className="mini-input" value={groupSize} onChange={e => setGroupSize(e.target.value)}>
+            <option value="2">2 people</option>
+            <option value="3">3 people</option>
+            <option value="4">4 people</option>
+            <option value="5">5 people</option>
+          </select>
+          <div className="btn-row">
+            <button className="btn" style={{ flex: 1 }} disabled={submitting} onClick={handleConfirm}>
+              {submitting ? 'Confirming...' : 'Confirm'}
+            </button>
+            <button className="btn" style={{ flex: 1 }} onClick={() => setShowForm(false)}>
+              Cancel
+            </button>
+          </div>
+          {error && <div style={{ color: '#dc2626', fontSize: '0.75rem', marginTop: '0.4rem', fontWeight: 600 }}>{error}</div>}
+        </div>
+      )}
     </div>
   )
 }

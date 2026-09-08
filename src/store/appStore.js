@@ -5,7 +5,7 @@ export const useAppStore = create((set, get) => ({
   eventId: null,
   totalDays: 0,
   poojasDays: [],
-  poojaPeople: {},
+  poojaCheckins: {},
   budget: 0,
   expenses: [],
   chandha: [],
@@ -58,6 +58,23 @@ export const useAppStore = create((set, get) => ({
           grouped[p.pooja_day_id].push(p)
         })
         set({ poojaPeople: grouped })
+
+        let checkins = []
+        if (dayIds.length > 0) {
+          const { data: checkinData, error: checkinErr } = await supabase
+            .from('pooja_checkins')
+            .select('*')
+            .in('pooja_day_id', dayIds)
+            .order('slot_number')
+          if (checkinErr) console.error('fetch pooja_checkins error:', checkinErr)
+          checkins = checkinData || []
+        }
+        const checkinMap = {}
+        checkins.forEach(c => {
+          if (!checkinMap[c.pooja_day_id]) checkinMap[c.pooja_day_id] = []
+          checkinMap[c.pooja_day_id].push(c)
+        })
+        set({ poojaCheckins: checkinMap })
 
         const { data: budgetData } = await supabase
           .from('budget')
@@ -140,6 +157,22 @@ export const useAppStore = create((set, get) => ({
     set({ poojasDays: data || [] })
   },
 
+  updateEvents: async (dayId, eventsText) => {
+    const { eventId } = get()
+    const { error } = await supabase
+      .from('pooja_days')
+      .update({ events_text: eventsText || null })
+      .eq('id', dayId)
+    if (error) { console.error('updateEvents error:', error); return }
+
+    const { data } = await supabase
+      .from('pooja_days')
+      .select('*')
+      .eq('event_id', eventId)
+      .order('day_number')
+    set({ poojasDays: data || [] })
+  },
+
   addPerson: async (dayId, name, phone, lane) => {
     const { poojaPeople } = get()
     const existing = poojaPeople[dayId] || []
@@ -212,6 +245,25 @@ export const useAppStore = create((set, get) => ({
       .single()
     if (error || !data) { console.error('addExpense error:', error); return }
     set({ expenses: [data, ...expenses] })
+  },
+
+  checkInSlot: async (dayId, slotNumber, name, phone, groupSize) => {
+    const { poojaCheckins } = get()
+    const existing = poojaCheckins[dayId] || []
+    if (existing.some(c => c.slot_number === slotNumber)) {
+      return { success: false, error: 'This slot was just booked by someone else. Please pick another.' }
+    }
+    const { data, error } = await supabase
+      .from('pooja_checkins')
+      .insert([{ pooja_day_id: dayId, slot_number: slotNumber, name, phone, group_size: groupSize }])
+      .select()
+      .single()
+    if (error || !data) {
+      console.error('checkInSlot error:', error)
+      return { success: false, error: 'Could not complete check-in. Please try again.' }
+    }
+    set({ poojaCheckins: { ...poojaCheckins, [dayId]: [...existing, data] } })
+    return { success: true }
   },
 
   addChandha: async (name, phone, street, amount, status) => {

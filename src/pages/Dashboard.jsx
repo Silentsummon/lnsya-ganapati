@@ -16,8 +16,7 @@ function formatDate(dateStr) {
 export default function Dashboard({ forcedRole }) {
   const navigate = useNavigate()
   const {
-    totalDays, setTotalDays, poojasDays, updatePoojaDay, setAllDates,
-    poojaPeople, addPerson, deletePerson,
+    totalDays, setTotalDays, poojasDays, updatePoojaDay, updateEvents, setAllDates,
     budget, setBudget, expenses, addExpense,
     chandha, addChandha, broadcastToChandha,
   } = useAppStore()
@@ -52,25 +51,19 @@ export default function Dashboard({ forcedRole }) {
       {userRole === 'president' && (
         <PresidentPanel
           totalDays={totalDays} setTotalDays={setTotalDays}
-          days={visibleDays} updatePoojaDay={updatePoojaDay}
-          poojaPeople={poojaPeople} addPerson={addPerson} deletePerson={deletePerson}
+          days={visibleDays} updatePoojaDay={updatePoojaDay} updateEvents={updateEvents}
           setAllDates={setAllDates}
           chandha={chandha} broadcastToChandha={broadcastToChandha}
         />
       )}
 
       {userRole === 'treasurer' && (
-        <>
-          <div className="stat-grid">
-            <div className="stat-box"><div className="stat-label">BUDGET</div><div className="stat-value">₹{budget}</div></div>
-            <div className="stat-box deficit"><div className="stat-label">SPENT</div><div className="stat-value">₹{totalSpent}</div></div>
-            <div className={`stat-box ${balance >= 0 ? 'surplus' : 'deficit'}`}>
-              <div className="stat-label">{balance >= 0 ? 'SURPLUS' : 'DEFICIT'}</div>
-              <div className="stat-value">₹{Math.abs(balance)}</div>
-            </div>
-          </div>
-          <TreasurerPanel budget={budget} setBudget={setBudget} expenses={expenses} addExpense={addExpense} />
-        </>
+        <TreasurerSection
+          budget={budget} setBudget={setBudget}
+          expenses={expenses} addExpense={addExpense}
+          totalSpent={totalSpent} balance={balance}
+          chandha={chandha}
+        />
       )}
 
       {userRole === 'volunteer' && (
@@ -79,7 +72,7 @@ export default function Dashboard({ forcedRole }) {
             <button className={`tab ${tab === 'updates' ? 'active' : ''}`} onClick={() => setTab('updates')}>Utsav Schedule</button>
             <button className={`tab ${tab === 'chandha' ? 'active' : ''}`} onClick={() => setTab('chandha')}>Chandha</button>
           </div>
-          {tab === 'updates' && <VolunteerUpdates days={visibleDays} poojaPeople={poojaPeople} />}
+          {tab === 'updates' && <VolunteerUpdates days={visibleDays} />}
           {tab === 'chandha' && <VolunteerChandha chandha={chandha} addChandha={addChandha} />}
         </>
       )}
@@ -87,10 +80,9 @@ export default function Dashboard({ forcedRole }) {
   )
 }
 
-function PresidentPanel({ totalDays, setTotalDays, days, updatePoojaDay, poojaPeople, addPerson, deletePerson, setAllDates, chandha, broadcastToChandha }) {
+function PresidentPanel({ totalDays, setTotalDays, days, updatePoojaDay, updateEvents, setAllDates, chandha, broadcastToChandha }) {
   const [editingTotal, setEditingTotal] = useState(false)
   const [totalInput, setTotalInput] = useState(String(totalDays))
-  const [expandedDay, setExpandedDay] = useState(null)
 
   return (
     <div>
@@ -120,22 +112,141 @@ function PresidentPanel({ totalDays, setTotalDays, days, updatePoojaDay, poojaPe
 
       <StartDateSetter setAllDates={setAllDates} />
 
-      <BroadcastPanel chandha={chandha} broadcastToChandha={broadcastToChandha} />
-
       {days.length === 0 && <p style={{ color: 'rgba(255,255,255,0.45)', textAlign: 'center', padding: '2rem 0', fontSize: '0.85rem' }}>Set overall days above to get started</p>}
 
-      {days.map(day => (
-        <DayEditorCard
-          key={day.id}
-          day={day}
-          isOpen={expandedDay === day.id}
-          onToggle={() => setExpandedDay(expandedDay === day.id ? null : day.id)}
-          people={poojaPeople[day.id] || []}
-          addPerson={addPerson}
-          deletePerson={deletePerson}
-          updatePoojaDay={updatePoojaDay}
-        />
-      ))}
+      {days.length > 0 && (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1.25rem' }}>
+          <PoojaSection days={days} updatePoojaDay={updatePoojaDay} />
+          <EventsSection days={days} updateEvents={updateEvents} />
+        </div>
+      )}
+    </div>
+  )
+}
+
+function PoojaSection({ days, updatePoojaDay }) {
+  const [sectionOpen, setSectionOpen] = useState(false)
+  const [expandedId, setExpandedId] = useState(null)
+
+  return (
+    <div className="card">
+      <button
+        onClick={() => setSectionOpen(!sectionOpen)}
+        style={{ width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
+      >
+        <div className="card-title" style={{ color: '#1a1a1a', marginBottom: 0 }}>Pooja</div>
+        <span style={{ color: '#1a1a1a', fontSize: '1.2rem', transform: sectionOpen ? 'rotate(90deg)' : 'none', transition: 'transform 0.2s' }}>&#8250;</span>
+      </button>
+      {sectionOpen && (
+        <div style={{ marginTop: '1rem' }}>
+          {days.map(day => (
+            <PoojaDayCard
+              key={day.id}
+              day={day}
+              isOpen={expandedId === day.id}
+              onToggle={() => setExpandedId(expandedId === day.id ? null : day.id)}
+              updatePoojaDay={updatePoojaDay}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function PoojaDayCard({ day, isOpen, onToggle, updatePoojaDay }) {
+  const [whatToBring, setWhatToBring] = useState(day.what_to_bring || '')
+  const [poojaDate, setPoojaDate] = useState(day.pooja_date || '')
+  const [annTitle, setAnnTitle] = useState(day.announcement_title || '')
+  const [annMsg, setAnnMsg] = useState(day.announcement_message || '')
+
+  const handleSave = () => {
+    updatePoojaDay(day.id, whatToBring, annTitle, annMsg, poojaDate)
+  }
+
+  return (
+    <div className="day-card">
+      <button className="day-toggle-header" onClick={onToggle}>
+        <div className="day-number-title" style={{ color: '#1a1a1a' }}>Day {day.day_number}{formatDate(day.pooja_date) ? ` — ${formatDate(day.pooja_date)}` : ''}</div>
+        <span className="day-chevron-big" style={{ color: '#1a1a1a', transform: isOpen ? 'rotate(90deg)' : 'none' }}>&#8250;</span>
+      </button>
+      {isOpen && (
+        <div style={{ padding: '0 1.1rem 1.1rem' }}>
+          <div className="section-label" style={{ marginTop: '0.5rem', color: '#1a1a1a' }}>Date</div>
+          <input type="date" className="mini-input" value={poojaDate} onChange={e => setPoojaDate(e.target.value)} />
+
+          <div className="section-label" style={{ marginTop: '0.5rem', color: '#1a1a1a' }}>What to Bring</div>
+          <textarea className="mini-input" rows={2} value={whatToBring} onChange={e => setWhatToBring(e.target.value)} placeholder="What to bring, instructions, etc." />
+
+          <div className="section-label" style={{ marginTop: '0.5rem', color: '#1a1a1a' }}>Announcement Title</div>
+          <input type="text" className="mini-input" value={annTitle} onChange={e => setAnnTitle(e.target.value)} placeholder="Announcement title" />
+
+          <div className="section-label" style={{ marginTop: '0.5rem', color: '#1a1a1a' }}>Announcement Message</div>
+          <textarea className="mini-input" rows={2} value={annMsg} onChange={e => setAnnMsg(e.target.value)} placeholder="Announcement message" />
+
+          <button className="btn" style={{ width: '100%', marginTop: '0.4rem' }} onClick={handleSave}>Save</button>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function EventsSection({ days, updateEvents }) {
+  const [sectionOpen, setSectionOpen] = useState(false)
+  const [expandedId, setExpandedId] = useState(null)
+
+  return (
+    <div className="card">
+      <button
+        onClick={() => setSectionOpen(!sectionOpen)}
+        style={{ width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
+      >
+        <div className="card-title" style={{ color: '#1a1a1a', marginBottom: 0 }}>Events</div>
+        <span style={{ color: '#1a1a1a', fontSize: '1.2rem', transform: sectionOpen ? 'rotate(90deg)' : 'none', transition: 'transform 0.2s' }}>&#8250;</span>
+      </button>
+      {sectionOpen && (
+        <div style={{ marginTop: '1rem' }}>
+          {days.map(day => (
+            <EventsDayCard
+              key={day.id}
+              day={day}
+              isOpen={expandedId === day.id}
+              onToggle={() => setExpandedId(expandedId === day.id ? null : day.id)}
+              updateEvents={updateEvents}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function EventsDayCard({ day, isOpen, onToggle, updateEvents }) {
+  const [eventsText, setEventsText] = useState(day.events_text || '')
+
+  const handleSave = () => {
+    updateEvents(day.id, eventsText)
+  }
+
+  return (
+    <div className="day-card">
+      <button className="day-toggle-header" onClick={onToggle}>
+        <div className="day-number-title" style={{ color: '#1a1a1a' }}>Day {day.day_number}{formatDate(day.pooja_date) ? ` — ${formatDate(day.pooja_date)}` : ''}</div>
+        <span className="day-chevron-big" style={{ color: '#1a1a1a', transform: isOpen ? 'rotate(90deg)' : 'none' }}>&#8250;</span>
+      </button>
+      {isOpen && (
+        <div style={{ padding: '0 1.1rem 1.1rem' }}>
+          <div className="section-label" style={{ marginTop: '0.5rem', color: '#1a1a1a' }}>Events (one per line)</div>
+          <textarea
+            className="mini-input"
+            rows={5}
+            value={eventsText}
+            onChange={e => setEventsText(e.target.value)}
+            placeholder="Ganesh Pooja, Cultural Program, Bhajan, Dinner / Prasadam (one per line)"
+          />
+          <button className="btn" style={{ width: '100%', marginTop: '0.4rem' }} onClick={handleSave}>Save</button>
+        </div>
+      )}
     </div>
   )
 }
@@ -167,9 +278,9 @@ function BroadcastPanel({ chandha, broadcastToChandha }) {
 
   return (
     <div className="section-box" style={{ marginBottom: '1.25rem' }}>
-      <div className="section-label amber">Broadcast to Chandha Contributors ({uniqueCount} unique numbers)</div>
+      <div className="section-label amber">Event Announcement ({uniqueCount} unique numbers)</div>
       {!showForm ? (
-        <button className="link-btn amber" onClick={() => setShowForm(true)}>+ Send Announcement to Everyone</button>
+        <button className="link-btn amber" onClick={() => setShowForm(true)}>+ Add Event Announcement</button>
       ) : (
         <div>
           <textarea
@@ -243,12 +354,7 @@ function StartDateSetter({ setAllDates }) {
   )
 }
 
-function DayEditorCard({ day, isOpen, onToggle, people, addPerson, deletePerson, updatePoojaDay }) {
-  const [addingPerson, setAddingPerson] = useState(false)
-  const [pName, setPName] = useState('')
-  const [pPhone, setPPhone] = useState('')
-  const [pLane, setPLane] = useState('')
-
+function DayEditorCard({ day, isOpen, onToggle, updatePoojaDay, updateEvents }) {
   const [editingInfo, setEditingInfo] = useState(false)
   const [whatToBring, setWhatToBring] = useState(day.what_to_bring || '')
 
@@ -261,13 +367,6 @@ function DayEditorCard({ day, isOpen, onToggle, people, addPerson, deletePerson,
 
   const dateLabel = formatDate(day.pooja_date)
 
-  const handleAddPerson = () => {
-    if (!pName.trim() || !pPhone.trim() || !pLane.trim()) return
-    if (people.length >= 2) return
-    addPerson(day.id, pName, pPhone, pLane)
-    setPName(''); setPPhone(''); setPLane(''); setAddingPerson(false)
-  }
-
   const handleSaveDate = () => {
     updatePoojaDay(day.id, day.what_to_bring, day.announcement_title, day.announcement_message, poojaDate)
     setEditingDate(false)
@@ -277,6 +376,14 @@ function DayEditorCard({ day, isOpen, onToggle, people, addPerson, deletePerson,
     if (!whatToBring.trim()) return
     updatePoojaDay(day.id, whatToBring, day.announcement_title, day.announcement_message, day.pooja_date)
     setEditingInfo(false)
+  }
+
+  const [editingEvents, setEditingEvents] = useState(false)
+  const [eventsText, setEventsText] = useState(day.events_text || '')
+
+  const handleSaveEvents = () => {
+    updateEvents(day.id, eventsText)
+    setEditingEvents(false)
   }
 
   const handleSaveAnnouncement = () => {
@@ -312,32 +419,6 @@ function DayEditorCard({ day, isOpen, onToggle, people, addPerson, deletePerson,
             )}
           </div>
 
-          {/* Pooja People */}
-          <div className="section-box">
-            <div className="section-label orange">Pooja People (max 2)</div>
-            {people.length === 0 && <div className="empty-text">No people added yet</div>}
-            {people.map(p => (
-              <div className="person-row" key={p.id}>
-                <div>
-                  <div className="person-name">{p.name}</div>
-                  <div className="person-sub">{p.phone} • {p.lane}</div>
-                </div>
-                <button className="person-delete" onClick={() => deletePerson(day.id, p.id)}>✕</button>
-              </div>
-            ))}
-            {people.length < 2 && !addingPerson && (
-              <button className="link-btn" onClick={() => setAddingPerson(true)}>+ Add Person</button>
-            )}
-            {addingPerson && (
-              <div style={{ marginTop: '0.5rem', paddingTop: '0.5rem', borderTop: '1px solid rgba(255,255,255,0.15)' }}>
-                <input className="mini-input" type="text" value={pName} onChange={e => setPName(e.target.value)} placeholder="Person name" onKeyDown={e => e.key === 'Enter' && handleAddPerson()} />
-                <input className="mini-input" type="text" value={pPhone} onChange={e => setPPhone(e.target.value)} placeholder="Phone" onKeyDown={e => e.key === 'Enter' && handleAddPerson()} />
-                <input className="mini-input" type="text" value={pLane} onChange={e => setPLane(e.target.value)} placeholder="Lane/Area" onKeyDown={e => e.key === 'Enter' && handleAddPerson()} />
-                <button className="btn" style={{ width: '100%' }} onClick={handleAddPerson}>Save</button>
-              </div>
-            )}
-          </div>
-
           {/* What to Bring */}
           <div className="section-box">
             <div className="section-label">What to Bring</div>
@@ -349,6 +430,31 @@ function DayEditorCard({ day, isOpen, onToggle, people, addPerson, deletePerson,
               <div style={{ marginTop: '0.4rem' }}>
                 <textarea className="mini-input" rows={2} value={whatToBring} onChange={e => setWhatToBring(e.target.value)} placeholder="What to bring, instructions, etc." />
                 <button className="btn" style={{ width: '100%' }} onClick={handleSaveInfo}>Save</button>
+              </div>
+            )}
+          </div>
+
+          {/* Events */}
+          <div className="section-box">
+            <div className="section-label">Events</div>
+            {day.events_text ? (
+              <div className="info-text" style={{ whiteSpace: 'pre-line' }}>{day.events_text}</div>
+            ) : (
+              <div className="empty-text">No events added yet</div>
+            )}
+            <button className="link-btn" onClick={() => { setEditingEvents(!editingEvents); setEventsText(day.events_text || '') }}>
+              {editingEvents ? 'Cancel' : 'Edit'}
+            </button>
+            {editingEvents && (
+              <div style={{ marginTop: '0.4rem' }}>
+                <textarea
+                  className="mini-input"
+                  rows={4}
+                  value={eventsText}
+                  onChange={e => setEventsText(e.target.value)}
+                  placeholder={"One event per line, e.g.\nGanesh Pooja\nCultural Program\nBhajan\nDinner / Prasadam"}
+                />
+                <button className="btn" style={{ width: '100%' }} onClick={handleSaveEvents}>Save</button>
               </div>
             )}
           </div>
@@ -386,6 +492,109 @@ function DayEditorCard({ day, isOpen, onToggle, people, addPerson, deletePerson,
               </div>
             )
           )}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function TreasurerSection({ budget, setBudget, expenses, addExpense, totalSpent, balance, chandha }) {
+  const [treasurerTab, setTreasurerTab] = useState('expenses')
+
+  return (
+    <div>
+      <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.25rem' }}>
+        <button
+          onClick={() => setTreasurerTab('expenses')}
+          style={{
+            flex: 1,
+            padding: '0.85rem 0.5rem',
+            borderRadius: '0.6rem',
+            fontWeight: 700,
+            fontSize: '0.85rem',
+            border: treasurerTab === 'expenses' ? '1px solid #1a1a1a' : '1px solid #d4d4d4',
+            background: treasurerTab === 'expenses' ? '#1a1a1a' : '#ffffff',
+            color: treasurerTab === 'expenses' ? '#ffffff' : '#1a1a1a',
+          }}
+        >
+          Expenses
+        </button>
+        <button
+          onClick={() => setTreasurerTab('chandhas')}
+          style={{
+            flex: 1,
+            padding: '0.85rem 0.5rem',
+            borderRadius: '0.6rem',
+            fontWeight: 700,
+            fontSize: '0.85rem',
+            border: treasurerTab === 'chandhas' ? '1px solid #1a1a1a' : '1px solid #d4d4d4',
+            background: treasurerTab === 'chandhas' ? '#1a1a1a' : '#ffffff',
+            color: treasurerTab === 'chandhas' ? '#ffffff' : '#1a1a1a',
+          }}
+        >
+          Chandhas
+        </button>
+      </div>
+
+      {treasurerTab === 'expenses' && (
+        <>
+          <div className="stat-grid">
+            <div className="stat-box"><div className="stat-label">BUDGET</div><div className="stat-value">₹{budget}</div></div>
+            <div className="stat-box deficit"><div className="stat-label">SPENT</div><div className="stat-value">₹{totalSpent}</div></div>
+            <div className={`stat-box ${balance >= 0 ? 'surplus' : 'deficit'}`}>
+              <div className="stat-label">{balance >= 0 ? 'SURPLUS' : 'DEFICIT'}</div>
+              <div className="stat-value">₹{Math.abs(balance)}</div>
+            </div>
+          </div>
+          <TreasurerPanel budget={budget} setBudget={setBudget} expenses={expenses} addExpense={addExpense} />
+        </>
+      )}
+
+      {treasurerTab === 'chandhas' && (
+        <div className="card">
+          <div className="card-title" style={{ color: '#1a1a1a' }}>Chandha Contributors ({chandha.length})</div>
+          {chandha.length === 0 && (
+            <p style={{ color: '#9a9a9a', fontSize: '0.85rem' }}>No contributions yet.</p>
+          )}
+          {chandha.map(c => (
+            <div
+              key={c.id}
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                padding: '0.85rem 0.9rem',
+                background: '#fafafa',
+                border: '1px solid #eeeeee',
+                borderRadius: '0.6rem',
+                marginBottom: '0.6rem',
+                gap: '0.5rem',
+              }}
+            >
+              <div style={{ minWidth: 0, flex: 1 }}>
+                <div style={{
+                  color: '#1a1a1a', fontWeight: 700, fontSize: '0.85rem',
+                  overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                }}>
+                  {c.name}
+                </div>
+              </div>
+              <div style={{ color: '#1a1a1a', fontWeight: 700, fontSize: '0.85rem', whiteSpace: 'nowrap' }}>
+                ₹{c.amount}
+              </div>
+              <div style={{
+                padding: '0.3rem 0.7rem',
+                borderRadius: '999px',
+                fontSize: '0.72rem',
+                fontWeight: 700,
+                whiteSpace: 'nowrap',
+                background: c.status === 'Paid' ? '#dcfce7' : '#fee2e2',
+                color: c.status === 'Paid' ? '#15803d' : '#b91c1c',
+              }}>
+                {c.status === 'Paid' ? '🟩 Paid' : '🟥 Pending'}
+              </div>
+            </div>
+          ))}
         </div>
       )}
     </div>
@@ -437,24 +646,16 @@ function TreasurerPanel({ budget, setBudget, expenses, addExpense }) {
   )
 }
 
-function VolunteerUpdates({ days, poojaPeople }) {
+function VolunteerUpdates({ days }) {
   return (
     <div>
       {days.map(day => {
         const dateLabel = formatDate(day.pooja_date)
-        const people = poojaPeople[day.id] || []
         return (
           <div className="card" key={day.id}>
             <div className="card-title">Day {day.day_number}{dateLabel ? ` · ${dateLabel}` : ''}</div>
             <div className="day-body-label">What to Bring</div>
             <div className="day-body-text">{day.what_to_bring}</div>
-            <div className="day-body-label" style={{ marginTop: '0.7rem' }}>Pooja People</div>
-            {people.length === 0 && <div className="day-body-text" style={{ opacity: 0.6 }}>Not assigned yet</div>}
-            {people.map(p => (
-              <div key={p.id} className="day-body-text" style={{ marginBottom: '0.2rem' }}>
-                {p.name} — {p.phone} • {p.lane}
-              </div>
-            ))}
             {day.announcement_title && (
               <div className="announcement-box">
                 <div className="announcement-title">{day.announcement_title}</div>
