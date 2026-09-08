@@ -16,7 +16,7 @@ function formatDate(dateStr) {
 export default function Dashboard({ forcedRole }) {
   const navigate = useNavigate()
   const {
-    totalDays, setTotalDays, poojasDays, updatePoojaDay,
+    totalDays, setTotalDays, poojasDays, updatePoojaDay, setAllDates,
     poojaPeople, addPerson, deletePerson,
     budget, setBudget, expenses, addExpense,
     chandha, addChandha,
@@ -54,6 +54,7 @@ export default function Dashboard({ forcedRole }) {
           totalDays={totalDays} setTotalDays={setTotalDays}
           days={visibleDays} updatePoojaDay={updatePoojaDay}
           poojaPeople={poojaPeople} addPerson={addPerson} deletePerson={deletePerson}
+          setAllDates={setAllDates}
         />
       )}
 
@@ -77,7 +78,7 @@ export default function Dashboard({ forcedRole }) {
             <button className={`tab ${tab === 'updates' ? 'active' : ''}`} onClick={() => setTab('updates')}>Utsav Schedule</button>
             <button className={`tab ${tab === 'chandha' ? 'active' : ''}`} onClick={() => setTab('chandha')}>Chandha</button>
           </div>
-          {tab === 'updates' && <VolunteerUpdates days={visibleDays} />}
+          {tab === 'updates' && <VolunteerUpdates days={visibleDays} poojaPeople={poojaPeople} />}
           {tab === 'chandha' && <VolunteerChandha chandha={chandha} addChandha={addChandha} />}
         </>
       )}
@@ -85,7 +86,7 @@ export default function Dashboard({ forcedRole }) {
   )
 }
 
-function PresidentPanel({ totalDays, setTotalDays, days, updatePoojaDay, poojaPeople, addPerson, deletePerson }) {
+function PresidentPanel({ totalDays, setTotalDays, days, updatePoojaDay, poojaPeople, addPerson, deletePerson, setAllDates }) {
   const [editingTotal, setEditingTotal] = useState(false)
   const [totalInput, setTotalInput] = useState(String(totalDays))
   const [expandedDay, setExpandedDay] = useState(null)
@@ -116,6 +117,8 @@ function PresidentPanel({ totalDays, setTotalDays, days, updatePoojaDay, poojaPe
         )}
       </div>
 
+      <StartDateSetter setAllDates={setAllDates} />
+
       {days.length === 0 && <p style={{ color: 'rgba(255,255,255,0.45)', textAlign: 'center', padding: '2rem 0', fontSize: '0.85rem' }}>Set overall days above to get started</p>}
 
       {days.map(day => (
@@ -130,6 +133,46 @@ function PresidentPanel({ totalDays, setTotalDays, days, updatePoojaDay, poojaPe
           updatePoojaDay={updatePoojaDay}
         />
       ))}
+    </div>
+  )
+}
+
+function StartDateSetter({ setAllDates }) {
+  const [showForm, setShowForm] = useState(false)
+  const [startDate, setStartDate] = useState('')
+  const [saving, setSaving] = useState(false)
+
+  const handleApply = async () => {
+    if (!startDate) return
+    setSaving(true)
+    await setAllDates(startDate)
+    setSaving(false)
+    setShowForm(false)
+  }
+
+  return (
+    <div className="section-box" style={{ marginBottom: '1.25rem' }}>
+      <div className="section-label">Set Day 1 Date (auto-fills all days sequentially)</div>
+      {!showForm ? (
+        <button className="link-btn" onClick={() => setShowForm(true)}>+ Set Start Date</button>
+      ) : (
+        <div>
+          <input
+            className="mini-input"
+            type="date"
+            value={startDate}
+            onChange={e => setStartDate(e.target.value)}
+          />
+          <div className="btn-row">
+            <button className="btn" disabled={saving} onClick={handleApply} style={{ flex: 1 }}>
+              {saving ? 'Applying...' : 'Apply to All Days'}
+            </button>
+            <button className="btn" onClick={() => setShowForm(false)} style={{ flex: 1 }}>
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
@@ -328,16 +371,24 @@ function TreasurerPanel({ budget, setBudget, expenses, addExpense }) {
   )
 }
 
-function VolunteerUpdates({ days }) {
+function VolunteerUpdates({ days, poojaPeople }) {
   return (
     <div>
       {days.map(day => {
         const dateLabel = formatDate(day.pooja_date)
+        const people = poojaPeople[day.id] || []
         return (
           <div className="card" key={day.id}>
             <div className="card-title">Day {day.day_number}{dateLabel ? ` · ${dateLabel}` : ''}</div>
             <div className="day-body-label">What to Bring</div>
             <div className="day-body-text">{day.what_to_bring}</div>
+            <div className="day-body-label" style={{ marginTop: '0.7rem' }}>Pooja People</div>
+            {people.length === 0 && <div className="day-body-text" style={{ opacity: 0.6 }}>Not assigned yet</div>}
+            {people.map(p => (
+              <div key={p.id} className="day-body-text" style={{ marginBottom: '0.2rem' }}>
+                {p.name} — {p.phone} • {p.lane}
+              </div>
+            ))}
             {day.announcement_title && (
               <div className="announcement-box">
                 <div className="announcement-title">{day.announcement_title}</div>

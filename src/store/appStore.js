@@ -160,6 +160,34 @@ export const useAppStore = create((set, get) => ({
     set({ poojaPeople: { ...poojaPeople, [dayId]: (poojaPeople[dayId] || []).filter(p => p.id !== personId) } })
   },
 
+  setAllDates: async (startDate) => {
+    const { eventId, poojasDays } = get()
+    if (!eventId || !startDate) return
+    const base = new Date(startDate + 'T00:00:00')
+
+    const toLocalDateStr = (d) => {
+      const y = d.getFullYear()
+      const m = String(d.getMonth() + 1).padStart(2, '0')
+      const day = String(d.getDate()).padStart(2, '0')
+      return `${y}-${m}-${day}`
+    }
+
+    for (const day of poojasDays) {
+      const d = new Date(base)
+      d.setDate(d.getDate() + (day.day_number - 1))
+      const dateStr = toLocalDateStr(d)
+      const { error } = await supabase.from('pooja_days').update({ pooja_date: dateStr }).eq('id', day.id)
+      if (error) console.error('setAllDates error:', error)
+    }
+
+    const { data } = await supabase
+      .from('pooja_days')
+      .select('*')
+      .eq('event_id', eventId)
+      .order('day_number')
+    set({ poojasDays: data || [] })
+  },
+
   setBudget: async (amount) => {
     const { eventId } = get()
     if (!eventId) return
