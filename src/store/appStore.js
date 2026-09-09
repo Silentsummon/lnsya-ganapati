@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { supabase, ORGANIZATION_ID } from '../lib/supabase'
+import { triggerWhatsAppSend } from '../lib/whatsapp'
 
 export const useAppStore = create((set, get) => ({
   eventId: null,
@@ -276,6 +277,8 @@ export const useAppStore = create((set, get) => ({
       .single()
     if (error || !data) { console.error('addChandha error:', error); return }
     set({ chandha: [data, ...chandha] })
+
+    triggerWhatsAppSend(phone, name, amount)
   },
 
   // DUMMY broadcast — logs to console instead of sending via WhatsApp.
