@@ -671,12 +671,7 @@ function VolunteerUpdates({ days }) {
 }
 
 function VolunteerChandha({ chandha, addChandha }) {
-  const [name, setName] = useState('')
-  const [phone, setPhone] = useState('')
-  const [street, setStreet] = useState('')
-  const [amount, setAmount] = useState('')
-  const [status, setStatus] = useState('Paid')
-  const [expandedId, setExpandedId] = useState(null)
+  const [view, setView] = useState('list')
 
   const formatDate = (dateStr) => {
     if (!dateStr) return '-'
@@ -730,83 +725,162 @@ function VolunteerChandha({ chandha, addChandha }) {
     doc.save(`chandha-collection-${new Date().toISOString().split('T')[0]}.pdf`)
   }
 
+  if (view === 'add') {
+    return <ChandhaAddForm addChandha={addChandha} chandhaCount={chandha.length} onDone={() => setView('list')} />
+  }
+
+  const paidTotal = chandha.filter(c => c.status === 'Paid').reduce((s, c) => s + Number(c.amount), 0)
+  const paidCount = chandha.filter(c => c.status === 'Paid').length
+  const pendingTotal = chandha.filter(c => c.status === 'Pending').reduce((s, c) => s + Number(c.amount), 0)
+  const pendingCount = chandha.filter(c => c.status === 'Pending').length
+  const grandTotal = paidTotal + pendingTotal
+
   return (
     <div>
-      <div className="stat-grid">
-        <div className="stat-box"><div className="stat-label">ENTRIES</div><div className="stat-value">{chandha.length}</div></div>
-        <div className="stat-box surplus"><div className="stat-label">COLLECTED</div><div className="stat-value">₹{chandha.reduce((s,c)=>s+Number(c.amount),0)}</div></div>
-        <div className="stat-box deficit"><div className="stat-label">PENDING</div><div className="stat-value">{chandha.filter(c=>c.status==='Pending').length}</div></div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem', flexWrap: 'wrap', gap: '0.6rem' }}>
+        <div className="card-title" style={{ color: '#1a1a1a', marginBottom: 0, fontSize: '1.3rem' }}>Chandha list</div>
+        <button className="btn" onClick={() => setView('add')}>Add another</button>
       </div>
 
-      <div className="card">
-        <div className="card-title">Add Chandha Entry</div>
-        <div className="form-grid">
-          <input type="text" value={name} onChange={e => setName(e.target.value)} placeholder="Name" />
-          <input type="text" value={phone} onChange={e => setPhone(e.target.value)} placeholder="Phone" />
-          <input type="text" value={street} onChange={e => setStreet(e.target.value)} placeholder="Street" />
-          <input type="number" value={amount} onChange={e => setAmount(e.target.value)} placeholder="Amount" />
-          <select value={status} onChange={e => setStatus(e.target.value)}>
-            <option value="Paid">Paid</option>
-            <option value="Pending">Pending</option>
-          </select>
-        </div>
-        <button className="btn" onClick={() => {
-          if (name && amount) {
-            addChandha(name, phone, street, parseFloat(amount), status)
-            setName(''); setPhone(''); setStreet(''); setAmount(''); setStatus('Paid')
-          }
-        }}>Add Entry</button>
+      <div className="btn-row" style={{ marginBottom: '1.25rem' }}>
+        <button className="btn" style={{ flex: 1, background: '#ffffff', color: '#1a1a1a', border: '1px solid #d4d4d4' }} onClick={exportCSV}>
+          Export as CSV
+        </button>
+        <button className="btn" style={{ flex: 1, background: '#ffffff', color: '#1a1a1a', border: '1px solid #d4d4d4' }} onClick={exportPDF}>
+          Export as PDF
+        </button>
       </div>
 
-      <div className="card">
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap', gap: '0.6rem' }}>
-          <div className="card-title" style={{ marginBottom: 0 }}>Collection List</div>
-          <div className="btn-row">
-            <button className="btn" onClick={exportCSV} style={{ fontSize: '0.7rem', padding: '0.5rem 1rem' }}>Export CSV</button>
-            <button className="btn" onClick={exportPDF} style={{ fontSize: '0.7rem', padding: '0.5rem 1rem' }}>Export PDF</button>
+      <div className="card" style={{ padding: '0.5rem 0' }}>
+        {chandha.length === 0 && (
+          <p style={{ color: '#9a9a9a', fontSize: '0.85rem', padding: '0 1.25rem' }}>No entries yet.</p>
+        )}
+        {chandha.map((c, i) => (
+          <div
+            key={c.id}
+            style={{
+              display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+              padding: '0.9rem 1.25rem',
+              borderBottom: i < chandha.length - 1 ? '1px solid #f0f0f0' : 'none',
+            }}
+          >
+            <span style={{ color: '#1a1a1a', fontSize: '0.9rem', fontWeight: 500 }}>{c.name}</span>
+            <span style={{ color: '#1a1a1a', fontSize: '0.9rem', fontWeight: 700 }}>₹{Number(c.amount).toLocaleString('en-IN')}</span>
           </div>
+        ))}
+      </div>
+
+      <div style={{ marginTop: '1.25rem', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+        <div style={{
+          display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+          padding: '1rem 1.25rem', borderRadius: '0.7rem',
+          background: '#dcfce7', border: '1px solid #86d9a3',
+        }}>
+          <div>
+            <div style={{ color: '#15803d', fontWeight: 700, fontSize: '0.9rem' }}>Paid</div>
+            <div style={{ color: '#166534', fontSize: '0.75rem' }}>{paidCount} {paidCount === 1 ? 'member' : 'members'}</div>
+          </div>
+          <div style={{ color: '#15803d', fontWeight: 800, fontSize: '1.15rem' }}>₹{paidTotal.toLocaleString('en-IN')}</div>
         </div>
 
-        {chandha.length === 0 && <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: '0.85rem' }}>No entries yet.</p>}
+        <div style={{
+          display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+          padding: '1rem 1.25rem', borderRadius: '0.7rem',
+          background: '#fef3c7', border: '1px solid #f0d98c',
+        }}>
+          <div>
+            <div style={{ color: '#92400e', fontWeight: 700, fontSize: '0.9rem' }}>Pending</div>
+            <div style={{ color: '#92400e', fontSize: '0.75rem' }}>{pendingCount} {pendingCount === 1 ? 'member' : 'members'}</div>
+          </div>
+          <div style={{ color: '#92400e', fontWeight: 800, fontSize: '1.15rem' }}>₹{pendingTotal.toLocaleString('en-IN')}</div>
+        </div>
 
-        {chandha.map(c => {
-          const isOpen = expandedId === c.id
-          return (
-            <div key={c.id} style={{ marginBottom: '0.5rem' }}>
-              <div
-                className="list-row"
-                style={{ cursor: 'pointer', marginBottom: isOpen ? 0 : undefined, borderBottomLeftRadius: isOpen ? 0 : undefined, borderBottomRightRadius: isOpen ? 0 : undefined }}
-                onClick={() => setExpandedId(isOpen ? null : c.id)}
-              >
-                <div><div className="list-row-name">{c.name}</div><div className="list-row-sub">{c.phone} • {c.street}</div></div>
-                <div style={{ textAlign: 'right', display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-                  <div>
-                    <div className="list-row-amount">₹{c.amount}</div>
-                    <span className={`status-pill ${c.status === 'Paid' ? 'paid' : 'pending'}`}>{c.status}</span>
-                  </div>
-                  <span style={{ fontSize: '0.9rem', transform: isOpen ? 'rotate(90deg)' : 'none', transition: 'transform 0.2s', opacity: 0.7 }}>&#8250;</span>
-                </div>
-              </div>
-              {isOpen && (
-                <div style={{
-                  background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.25)', borderTop: 'none',
-                  borderBottomLeftRadius: '0.6rem', borderBottomRightRadius: '0.6rem',
-                  padding: '0.8rem 1rem', fontSize: '0.8rem',
-                }}>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '0.6rem' }}>
-                    <div><span style={{ opacity: 0.6 }}>Full Name:</span> <strong>{c.name}</strong></div>
-                    <div><span style={{ opacity: 0.6 }}>Phone:</span> <strong>{c.phone || '-'}</strong></div>
-                    <div><span style={{ opacity: 0.6 }}>Street:</span> <strong>{c.street || '-'}</strong></div>
-                    <div><span style={{ opacity: 0.6 }}>Amount:</span> <strong>₹{c.amount}</strong></div>
-                    <div><span style={{ opacity: 0.6 }}>Status:</span> <strong>{c.status}</strong></div>
-                    <div><span style={{ opacity: 0.6 }}>Date Added:</span> <strong>{formatDate(c.created_at)}</strong></div>
-                  </div>
-                </div>
-              )}
-            </div>
-          )
-        })}
+        <div style={{
+          display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+          padding: '1rem 1.25rem', borderRadius: '0.7rem',
+          background: '#ffffff', border: '1px solid #1a1a1a',
+        }}>
+          <div>
+            <div style={{ color: '#1a1a1a', fontWeight: 700, fontSize: '0.9rem' }}>Total</div>
+            <div style={{ color: '#6b6b6b', fontSize: '0.75rem' }}>{chandha.length} {chandha.length === 1 ? 'member' : 'members'}</div>
+          </div>
+          <div style={{ color: '#1a1a1a', fontWeight: 800, fontSize: '1.15rem' }}>₹{grandTotal.toLocaleString('en-IN')}</div>
+        </div>
       </div>
+    </div>
+  )
+}
+
+function ChandhaAddForm({ addChandha, chandhaCount, onDone }) {
+  const [name, setName] = useState('')
+  const [phone, setPhone] = useState('')
+  const [street, setStreet] = useState('')
+  const [amount, setAmount] = useState('')
+  const [description, setDescription] = useState('')
+  const [status, setStatus] = useState('Paid')
+
+  const handleAdd = () => {
+    if (!name.trim() || !amount) return
+    addChandha(name.trim(), phone.trim(), street.trim(), parseFloat(amount), status)
+    setName(''); setPhone(''); setStreet(''); setAmount(''); setDescription(''); setStatus('Paid')
+    onDone()
+  }
+
+  return (
+    <div>
+      <div className="card-title" style={{ color: '#1a1a1a', fontSize: '1.3rem', marginBottom: '0.3rem' }}>Add a chandha</div>
+      <p style={{ color: '#6b6b6b', fontSize: '0.82rem', marginBottom: '1.25rem' }}>
+        Record one member's contribution and payment status.
+      </p>
+
+      <div className="card">
+        <div className="section-label" style={{ color: '#1a1a1a' }}>Name</div>
+        <input type="text" value={name} onChange={e => setName(e.target.value)} placeholder="Enter name" style={{ marginBottom: '1rem' }} />
+
+        <div className="section-label" style={{ color: '#1a1a1a' }}>Mobile number</div>
+        <input type="tel" value={phone} onChange={e => setPhone(e.target.value)} placeholder="Enter 10-digit number" style={{ marginBottom: '1rem' }} />
+
+        <div className="section-label" style={{ color: '#1a1a1a' }}>Street</div>
+        <input type="text" value={street} onChange={e => setStreet(e.target.value)} placeholder="Enter street" style={{ marginBottom: '1rem' }} />
+
+        <div className="section-label" style={{ color: '#1a1a1a' }}>Chandha amount</div>
+        <input type="number" value={amount} onChange={e => setAmount(e.target.value)} placeholder="Enter amount" style={{ marginBottom: '1rem' }} />
+
+        <div className="section-label" style={{ color: '#1a1a1a' }}>Description (optional)</div>
+        <textarea rows={2} value={description} onChange={e => setDescription(e.target.value)} placeholder="Enter description if needed" style={{ marginBottom: '1rem' }} />
+
+        <div className="section-label" style={{ color: '#1a1a1a' }}>Payment status</div>
+        <div className="btn-row" style={{ marginBottom: '1.25rem' }}>
+          <button
+            onClick={() => setStatus('Paid')}
+            style={{
+              flex: 1, padding: '0.75rem', borderRadius: '0.6rem', fontWeight: 700, fontSize: '0.85rem',
+              border: status === 'Paid' ? '2px solid #15803d' : '1px solid #d4d4d4',
+              background: status === 'Paid' ? '#dcfce7' : '#ffffff',
+              color: status === 'Paid' ? '#15803d' : '#6b6b6b',
+            }}
+          >
+            Paid
+          </button>
+          <button
+            onClick={() => setStatus('Pending')}
+            style={{
+              flex: 1, padding: '0.75rem', borderRadius: '0.6rem', fontWeight: 700, fontSize: '0.85rem',
+              border: status === 'Pending' ? '2px solid #92400e' : '1px solid #d4d4d4',
+              background: status === 'Pending' ? '#fef3c7' : '#ffffff',
+              color: status === 'Pending' ? '#92400e' : '#6b6b6b',
+            }}
+          >
+            Pending
+          </button>
+        </div>
+
+        <button className="btn" style={{ width: '100%' }} onClick={handleAdd}>Add</button>
+      </div>
+
+      <button className="link-btn" style={{ color: '#1a1a1a', marginTop: '1rem', textAlign: 'center' }} onClick={onDone}>
+        View chandha list ({chandhaCount})
+      </button>
     </div>
   )
 }
