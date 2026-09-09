@@ -818,11 +818,15 @@ function ChandhaAddForm({ addChandha, chandhaCount, onDone }) {
   const [amount, setAmount] = useState('')
   const [description, setDescription] = useState('')
   const [status, setStatus] = useState('Paid')
+  const [submitting, setSubmitting] = useState(false)
 
-  const handleAdd = () => {
+  const handleAdd = async () => {
+    if (submitting) return
     if (!name.trim() || !amount) return
-    addChandha(name.trim(), phone.trim(), street.trim(), parseFloat(amount), status)
+    setSubmitting(true)
+    await addChandha(name.trim(), phone.trim(), street.trim(), parseFloat(amount), status)
     setName(''); setPhone(''); setStreet(''); setAmount(''); setDescription(''); setStatus('Paid')
+    setSubmitting(false)
     onDone()
   }
 
@@ -838,7 +842,7 @@ function ChandhaAddForm({ addChandha, chandhaCount, onDone }) {
         <input type="text" value={name} onChange={e => setName(e.target.value)} placeholder="Enter name" style={{ marginBottom: '1rem' }} />
 
         <div className="section-label" style={{ color: '#1a1a1a' }}>Mobile number</div>
-        <input type="tel" value={phone} onChange={e => setPhone(e.target.value)} placeholder="Enter 10-digit number" style={{ marginBottom: '1rem' }} />
+        <input type="tel" inputMode="numeric" value={phone} onChange={e => setPhone(e.target.value.replace(/\D/g, '').slice(0, 10))} placeholder="Enter 10-digit number" style={{ marginBottom: '1rem' }} />
 
         <div className="section-label" style={{ color: '#1a1a1a' }}>Street</div>
         <input type="text" value={street} onChange={e => setStreet(e.target.value)} placeholder="Enter street" style={{ marginBottom: '1rem' }} />
@@ -875,7 +879,7 @@ function ChandhaAddForm({ addChandha, chandhaCount, onDone }) {
           </button>
         </div>
 
-        <button className="btn" style={{ width: '100%' }} onClick={handleAdd}>Add</button>
+        <button className="btn" style={{ width: '100%', opacity: submitting ? 0.6 : 1 }} disabled={submitting} onClick={handleAdd}>{submitting ? 'Adding...' : 'Add'}</button>
       </div>
 
       <button className="link-btn" style={{ color: '#1a1a1a', marginTop: '1rem', textAlign: 'center' }} onClick={onDone}>
