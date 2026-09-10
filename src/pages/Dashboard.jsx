@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAppStore } from '../store/appStore'
-import { sendCustomMessage } from '../lib/whatsapp-api'
 import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
 
@@ -112,8 +111,6 @@ function PresidentPanel({ totalDays, setTotalDays, days, updatePoojaDay, updateE
       </div>
 
       <StartDateSetter setAllDates={setAllDates} />
-
-      <WhatsAppTestPanel />
 
       {days.length === 0 && <p style={{ color: 'rgba(255,255,255,0.45)', textAlign: 'center', padding: '2rem 0', fontSize: '0.85rem' }}>Set overall days above to get started</p>}
 
@@ -311,53 +308,6 @@ function BroadcastPanel({ chandha, broadcastToChandha }) {
               {result.error}
             </div>
           )}
-        </div>
-      )}
-    </div>
-  )
-}
-
-function WhatsAppTestPanel() {
-  const [phone, setPhone] = useState('')
-  const [message, setMessage] = useState('')
-  const [sending, setSending] = useState(false)
-  const [result, setResult] = useState(null)
-
-  const handleSend = async () => {
-    if (!phone.trim() || !message.trim()) return
-    setSending(true)
-    setResult(null)
-    const res = await sendCustomMessage(phone.trim(), message.trim())
-    setSending(false)
-    setResult(res)
-  }
-
-  return (
-    <div className="section-box" style={{ marginBottom: '1.25rem', border: '1px dashed #d4d4d4' }}>
-      <div className="section-label">WhatsApp Test (single number only)</div>
-      <input
-        className="mini-input"
-        type="tel"
-        value={phone}
-        onChange={e => setPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
-        placeholder="Your phone number, e.g. 9876543210"
-      />
-      <textarea
-        className="mini-input"
-        rows={2}
-        value={message}
-        onChange={e => setMessage(e.target.value)}
-        placeholder="Test message"
-      />
-      <button className="btn" style={{ width: '100%' }} disabled={sending} onClick={handleSend}>
-        {sending ? 'Sending...' : 'Send Test Message'}
-      </button>
-      {result && (
-        <div style={{
-          marginTop: '0.6rem', fontSize: '0.78rem', fontWeight: 600,
-          color: result.success === false ? '#dc2626' : '#15803d',
-        }}>
-          {result.success === false ? `Failed: ${result.error}` : 'Sent successfully!'}
         </div>
       )}
     </div>
