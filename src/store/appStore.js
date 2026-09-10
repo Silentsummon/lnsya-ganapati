@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { supabase, ORGANIZATION_ID } from '../lib/supabase'
-import { triggerWhatsAppSend } from '../lib/whatsapp'
+import { sendThankYouMessage, sendCustomMessage } from '../lib/whatsapp-api'
 
 export const useAppStore = create((set, get) => ({
   eventId: null,
@@ -278,12 +278,12 @@ export const useAppStore = create((set, get) => ({
     if (error || !data) { console.error('addChandha error:', error); return }
     set({ chandha: [data, ...chandha] })
 
-    triggerWhatsAppSend(phone, name, amount)
+    sendThankYouMessage(phone, name, amount)
   },
 
   // DUMMY broadcast — logs to console instead of sending via WhatsApp.
   // Swap the inside of this function for a real API call once WhatsApp server is ready.
-  broadcastToChandha: async (message) => {
+  broadcastEventAnnouncement: async (message, onProgress) => {
     const { chandha } = get()
     if (!message || !message.trim()) {
       return { success: false, error: 'Message is empty' }
@@ -300,12 +300,31 @@ export const useAppStore = create((set, get) => ({
       recipients.push({ name: c.name, phone })
     }
 
-    // --- DUMMY SEND ---
-    console.log('[DUMMY BROADCAST] Message:', message)
-    console.log('[DUMMY BROADCAST] Would send to', recipients.length, 'unique numbers:')
-    console.table(recipients)
-    // --- END DUMMY SEND ---
+    if (recipients.length === 0) {
+      return { success: false, error: 'No chandha contributors to message' }
+    }
 
-    return { success: true, count: recipients.length, recipients }
+    let sent = 0
+    let failed = 0
+    const failedNumbers = []
+
+    for (let i = 0; i < recipients.length; i++) {
+      const { phone, name } = recipients[i]
+      const result = await sendCustomMessage(phone, message.trim())
+      if (result.success !== false) {
+        sent++
+      } else {
+        failed++
+        failedNumbers.push({ name, phone, error: result.error })
+      }
+      if (onProgress) onProgress(i + 1, recipients.length)
+
+      // small delay between sends to avoid spam-flagging
+      if (i < recipients.length - 1) {
+        await new Promise(r => setTimeout(r, 3000 + Math.random() * 4000))
+      }
+    }
+
+    return { success: true, sent, failed, total: recipients.length, failedNumbers }
   },
 }))
