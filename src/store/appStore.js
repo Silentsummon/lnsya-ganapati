@@ -1,6 +1,20 @@
 import { create } from 'zustand'
 import { supabase, ORGANIZATION_ID } from '../lib/supabase'
-import { sendThankYouMessage, sendCustomMessage } from '../lib/whatsapp-api'
+import { sendThankYouMessage, sendCustomMessage } from "../lib/whatsapp-api"
+import { triggerWhatsAppSend, triggerPoojaConfirmation } from "../lib/whatsapp"
+
+function formatPoojaDate(dateStr) {
+  const d = new Date(dateStr)
+  const day = d.getDate()
+  const suffix = (day % 10 === 1 && day !== 11) ? "st"
+    : (day % 10 === 2 && day !== 12) ? "nd"
+    : (day % 10 === 3 && day !== 13) ? "rd"
+    : "th"
+  const month = d.toLocaleDateString("en-IN", { month: "short" })
+  const year = d.getFullYear()
+  const weekday = d.toLocaleDateString("en-IN", { weekday: "long" })
+  return `${day}${suffix} ${month} ${year}, ${weekday}`
+}
 
 export const useAppStore = create((set, get) => ({
   eventId: null,
@@ -249,7 +263,7 @@ export const useAppStore = create((set, get) => ({
   },
 
   checkInSlot: async (dayId, slotNumber, name, phone, groupSize) => {
-    const { poojaCheckins } = get()
+    const { poojaCheckins, poojasDays } = get()
     const existing = poojaCheckins[dayId] || []
     if (existing.some(c => c.slot_number === slotNumber)) {
       return { success: false, error: 'This slot was just booked by someone else. Please pick another.' }
@@ -264,6 +278,16 @@ export const useAppStore = create((set, get) => ({
       return { success: false, error: 'Could not complete check-in. Please try again.' }
     }
     set({ poojaCheckins: { ...poojaCheckins, [dayId]: [...existing, data] } })
+
+    const day = poojasDays.find(d => d.id === dayId)
+    const poojaDate = day?.pooja_date
+      ? formatPoojaDate(day.pooja_date)
+      : `Day ${day?.day_number}`
+
+    triggerPoojaConfirmation(phone, name, poojaDate)
+    supabase.from('pooja_checkins').update({ message_stage: 'confirmation_sent' }).eq('id', data.id)
+      .then(({ error }) => { if (error) console.error('message_stage update error:', error) })
+
     return { success: true }
   },
 
