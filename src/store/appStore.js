@@ -16,6 +16,7 @@ function formatPoojaDate(dateStr) {
   return `${day}${suffix} ${month} ${year}, ${weekday}`
 }
 
+
 export const useAppStore = create((set, get) => ({
   eventId: null,
   totalDays: 0,
@@ -280,13 +281,7 @@ export const useAppStore = create((set, get) => ({
     set({ poojaCheckins: { ...poojaCheckins, [dayId]: [...existing, data] } })
 
     const day = poojasDays.find(d => d.id === dayId)
-    const poojaDate = day?.pooja_date
-      ? formatPoojaDate(day.pooja_date)
-      : `Day ${day?.day_number}`
-
-    triggerPoojaConfirmation(phone, name, poojaDate)
-    supabase.from('pooja_checkins').update({ message_stage: 'confirmation_sent' }).eq('id', data.id)
-      .then(({ error }) => { if (error) console.error('message_stage update error:', error) })
+    triggerPoojaConfirmation(phone, name, day?.day_number)
 
     return { success: true }
   },
@@ -305,23 +300,32 @@ export const useAppStore = create((set, get) => ({
     sendThankYouMessage(phone, name, amount)
   },
 
-  // DUMMY broadcast — logs to console instead of sending via WhatsApp.
-  // Swap the inside of this function for a real API call once WhatsApp server is ready.
-  broadcastEventAnnouncement: async (message, onProgress) => {
+  // Broadcast WhatsApp message to chandha contributors.
+  // Optional testPhone sends only to that number.
+  broadcastToChandha: async (message, testPhone, onProgress) => {
     const { chandha } = get()
+
     if (!message || !message.trim()) {
       return { success: false, error: 'Message is empty' }
     }
 
-    // Dedupe by phone number, skip blanks
-    const seen = new Set()
-    const recipients = []
-    for (const c of chandha) {
-      const phone = (c.phone || '').trim()
-      if (!phone) continue
-      if (seen.has(phone)) continue
-      seen.add(phone)
-      recipients.push({ name: c.name, phone })
+    let recipients = []
+
+    if (testPhone && testPhone.trim()) {
+      // TEST MODE: only send to this one number.
+      recipients = [{ name: 'Test', phone: testPhone.trim() }]
+    } else {
+      // Dedupe by phone number, skip blanks.
+      const seen = new Set()
+
+      for (const c of chandha) {
+        const phone = (c.phone || '').trim()
+        if (!phone) continue
+        if (seen.has(phone)) continue
+
+        seen.add(phone)
+        recipients.push({ name: c.name, phone })
+      }
     }
 
     if (recipients.length === 0) {
@@ -334,21 +338,43 @@ export const useAppStore = create((set, get) => ({
 
     for (let i = 0; i < recipients.length; i++) {
       const { phone, name } = recipients[i]
-      const result = await sendCustomMessage(phone, message.trim())
-      if (result.success !== false) {
-        sent++
-      } else {
-        failed++
-        failedNumbers.push({ name, phone, error: result.error })
-      }
-      if (onProgress) onProgress(i + 1, recipients.length)
 
-      // small delay between sends to avoid spam-flagging
+      try {
+        const result = await sendCustomMessage(phone, message.trim())
+
+        if (result.success !== false) {
+          sent++
+        } else {
+          failed++
+          failedNumbers.push({ name, phone, error: result.error })
+        }
+      } catch (err) {
+        failed++
+        failedNumbers.push({ name, phone, error: err.message })
+      }
+
+      if (onProgress) {
+        onProgress(i + 1, recipients.length)
+      }
+
       if (i < recipients.length - 1) {
-        await new Promise(r => setTimeout(r, 3000 + Math.random() * 4000))
+        await new Promise(r =>
+          setTimeout(r, 3000 + Math.random() * 4000)
+        )
       }
     }
 
-    return { success: true, sent, failed, total: recipients.length, failedNumbers }
+    return {
+      success: true,
+      sent,
+      failed,
+      total: recipients.length,
+      failedNumbers
+    }
+  },
+
+  // Backwards-compatible name used by the existing UI.
+  broadcastEventAnnouncement: async (message, onProgress) => {
+    return get().broadcastToChandha(message, null, onProgress)
   },
 }))
