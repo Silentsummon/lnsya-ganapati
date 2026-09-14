@@ -95,6 +95,11 @@ export const useAppStore = create((set, get) => ({
         failed++
         failedRecipients.push({ name: r.name, phone: r.phone })
       }
+
+      if (r !== recipients[recipients.length - 1]) {
+        const delay = Math.floor(Math.random() * 5001) + 5000
+        await new Promise(resolve => setTimeout(resolve, delay))
+      }
     }
 
     return { success: true, total: recipients.length, sent, failed, failedRecipients }
@@ -431,7 +436,7 @@ export const useAppStore = create((set, get) => ({
 
       if (i < recipients.length - 1) {
         await new Promise(r =>
-          setTimeout(r, 60000)
+          setTimeout(r, Math.floor(Math.random() * 5001) + 5000)
         )
       }
     }
