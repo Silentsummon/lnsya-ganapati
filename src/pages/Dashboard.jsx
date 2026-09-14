@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAppStore } from '../store/appStore'
+import { supabase } from '../lib/supabase'
 import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
 
@@ -19,6 +20,7 @@ export default function Dashboard({ forcedRole }) {
     totalDays, setTotalDays, poojasDays, updatePoojaDay, updateEvents, setAllDates,
     budget, setBudget, expenses, addExpense,
     chandha, addChandha, broadcastToChandha,
+    announcementImageUrl, setAnnouncementImageUrl, sendAnnouncement,
   } = useAppStore()
 
   const [userRole, setUserRole] = useState(forcedRole || '')
@@ -54,6 +56,8 @@ export default function Dashboard({ forcedRole }) {
           days={visibleDays} updatePoojaDay={updatePoojaDay} updateEvents={updateEvents}
           setAllDates={setAllDates}
           chandha={chandha} broadcastToChandha={broadcastToChandha}
+          announcementImageUrl={announcementImageUrl} setAnnouncementImageUrl={setAnnouncementImageUrl}
+          sendAnnouncement={sendAnnouncement}
         />
       )}
 
@@ -80,44 +84,125 @@ export default function Dashboard({ forcedRole }) {
   )
 }
 
-function PresidentPanel({ totalDays, setTotalDays, days, updatePoojaDay, updateEvents, setAllDates, chandha, broadcastToChandha }) {
+function PresidentPanel({ totalDays, setTotalDays, days, updatePoojaDay, updateEvents, setAllDates, chandha, broadcastToChandha, announcementImageUrl, setAnnouncementImageUrl, sendAnnouncement }) {
   const [editingTotal, setEditingTotal] = useState(false)
   const [totalInput, setTotalInput] = useState(String(totalDays))
+  const [presTab, setPresTab] = useState('schedule')
 
   return (
     <div>
-      <div className="event-days-banner">
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <div>
-            <div className="banner-label">Overall Event Days</div>
-            <div className="banner-value">{totalDays} Days</div>
-          </div>
-          <button className="btn" style={{ fontSize: '0.68rem', padding: '0.4rem 0.8rem' }}
-            onClick={() => { setEditingTotal(!editingTotal); setTotalInput(String(totalDays)) }}>
-            {editingTotal ? 'Cancel' : 'Edit'}
-          </button>
-        </div>
-        {editingTotal && (
-          <div style={{ marginTop: '0.75rem', paddingTop: '0.75rem', borderTop: '1px solid rgba(255,255,255,0.2)' }}>
-            <input type="number" value={totalInput} onChange={e => setTotalInput(e.target.value)}
-              onKeyDown={e => e.key === 'Enter' && (setTotalDays(parseInt(totalInput) || 0), setEditingTotal(false))}
-              placeholder="Number of days" style={{ marginBottom: '0.5rem' }} />
-            <button className="btn" style={{ width: '100%' }}
-              onClick={() => { setTotalDays(parseInt(totalInput) || 0); setEditingTotal(false) }}>
-              Set Days
-            </button>
-          </div>
-        )}
+      <div className="tabs">
+        <button className={`tab ${presTab === 'schedule' ? 'active' : ''}`} onClick={() => setPresTab('schedule')}>Schedule</button>
+        <button className={`tab ${presTab === 'announcements' ? 'active' : ''}`} onClick={() => setPresTab('announcements')}>Announcements</button>
       </div>
 
-      <StartDateSetter setAllDates={setAllDates} />
+      {presTab === 'schedule' && (
+        <div>
+          <div className="event-days-banner">
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div>
+                <div className="banner-label">Overall Event Days</div>
+                <div className="banner-value">{totalDays} Days</div>
+              </div>
+              <button className="btn" style={{ fontSize: '0.68rem', padding: '0.4rem 0.8rem' }}
+                onClick={() => { setEditingTotal(!editingTotal); setTotalInput(String(totalDays)) }}>
+                {editingTotal ? 'Cancel' : 'Edit'}
+              </button>
+            </div>
+            {editingTotal && (
+              <div style={{ marginTop: '0.75rem', paddingTop: '0.75rem', borderTop: '1px solid rgba(255,255,255,0.2)' }}>
+                <input type="number" value={totalInput} onChange={e => setTotalInput(e.target.value)}
+                  onKeyDown={e => e.key === 'Enter' && (setTotalDays(parseInt(totalInput) || 0), setEditingTotal(false))}
+                  placeholder="Number of days" style={{ marginBottom: '0.5rem' }} />
+                <button className="btn" style={{ width: '100%' }}
+                  onClick={() => { setTotalDays(parseInt(totalInput) || 0); setEditingTotal(false) }}>
+                  Set Days
+                </button>
+              </div>
+            )}
+          </div>
 
-      {days.length === 0 && <p style={{ color: 'rgba(255,255,255,0.45)', textAlign: 'center', padding: '2rem 0', fontSize: '0.85rem' }}>Set overall days above to get started</p>}
+          {days.length === 0 && <p style={{ color: 'rgba(255,255,255,0.45)', textAlign: 'center', padding: '2rem 0', fontSize: '0.85rem' }}>Set overall days above to get started</p>}
 
-      {days.length > 0 && (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1.25rem' }}>
-          <PoojaSection days={days} updatePoojaDay={updatePoojaDay} />
-          <EventsSection days={days} updateEvents={updateEvents} />
+          {days.length > 0 && (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1.25rem' }}>
+              <PoojaSection days={days} updatePoojaDay={updatePoojaDay} />
+              <EventsSection days={days} updateEvents={updateEvents} />
+            </div>
+          )}
+        </div>
+      )}
+
+      {presTab === 'announcements' && (
+        <AnnouncementsPanel
+          announcementImageUrl={announcementImageUrl}
+          setAnnouncementImageUrl={setAnnouncementImageUrl}
+          sendAnnouncement={sendAnnouncement}
+        />
+      )}
+    </div>
+  )
+}
+
+function AnnouncementsPanel({ announcementImageUrl, setAnnouncementImageUrl, sendAnnouncement }) {
+  const [message, setMessage] = useState('')
+  const [sending, setSending] = useState(false)
+  const [result, setResult] = useState(null)
+
+  const handleSend = async () => {
+    if (!message.trim()) return
+    setSending(true)
+    setResult(null)
+    const res = await sendAnnouncement(message, announcementImageUrl)
+    setSending(false)
+    setResult(res)
+  }
+
+  return (
+    <div>
+      <div className="section-box" style={{ marginBottom: '1.25rem' }}>
+        <div className="section-label">Announcement Message</div>
+        <textarea
+          className="mini-input"
+          rows={4}
+          style={{ width: '100%', resize: 'vertical' }}
+          value={message}
+          onChange={e => setMessage(e.target.value)}
+          placeholder="Type your announcement message..."
+          disabled={sending}
+        />
+      </div>
+
+      <ImageUploader imageUrl={announcementImageUrl} onUploaded={setAnnouncementImageUrl} />
+
+      {(message.trim() || announcementImageUrl) && (
+        <div className="section-box" style={{ marginBottom: '1.25rem' }}>
+          <div className="section-label">Preview</div>
+          {announcementImageUrl && (
+            <img src={announcementImageUrl} alt="Preview" style={{ maxWidth: '100%', borderRadius: '8px', marginBottom: '0.5rem' }} />
+          )}
+          {message.trim() && <p style={{ whiteSpace: 'pre-wrap' }}>{message}</p>}
+        </div>
+      )}
+
+      <button className="btn" style={{ width: '100%' }} disabled={sending || !message.trim()} onClick={handleSend}>
+        {sending ? 'Sending...' : 'Send Announcement'}
+      </button>
+
+      {result && (
+        <div className="section-box" style={{ marginTop: '1.25rem' }}>
+          <div className="section-label">Result</div>
+          <p>Total recipients: {result.total}</p>
+          <p>Successfully sent: {result.sent}</p>
+          <p>Failed: {result.failed}</p>
+          {result.failedRecipients && result.failedRecipients.length > 0 && (
+            <div style={{ marginTop: '0.5rem' }}>
+              <div style={{ fontWeight: 'bold', marginBottom: '0.25rem' }}>Failed recipients:</div>
+              {result.failedRecipients.map((r, i) => (
+                <div key={i} style={{ fontSize: '0.85rem' }}>{r.name} — {r.phone}</div>
+              ))}
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -314,40 +399,63 @@ function BroadcastPanel({ chandha, broadcastToChandha }) {
   )
 }
 
-function StartDateSetter({ setAllDates }) {
-  const [showForm, setShowForm] = useState(false)
-  const [startDate, setStartDate] = useState('')
-  const [saving, setSaving] = useState(false)
+function ImageUploader({ imageUrl, onUploaded }) {
+  const [uploading, setUploading] = useState(false)
+  const [error, setError] = useState('')
 
-  const handleApply = async () => {
-    if (!startDate) return
-    setSaving(true)
-    await setAllDates(startDate)
-    setSaving(false)
-    setShowForm(false)
+  const handleFileSelect = async (e) => {
+    const file = e.target.files[0]
+    if (!file) return
+
+    if (!file.type.startsWith('image/')) {
+      setError('Please select an image file.')
+      return
+    }
+
+    setError('')
+    setUploading(true)
+
+    try {
+      const fileExt = file.name.split('.').pop()
+      const fileName = `announcement-${Date.now()}.${fileExt}`
+
+      const { error: uploadError } = await supabase.storage
+        .from('announcement-images')
+        .upload(fileName, file)
+
+      if (uploadError) {
+        setError('Upload failed: ' + uploadError.message)
+        setUploading(false)
+        return
+      }
+
+      const { data: urlData } = supabase.storage
+        .from('announcement-images')
+        .getPublicUrl(fileName)
+
+      onUploaded(urlData.publicUrl)
+    } catch (err) {
+      setError('Upload failed: ' + err.message)
+    } finally {
+      setUploading(false)
+    }
   }
 
   return (
     <div className="section-box" style={{ marginBottom: '1.25rem' }}>
-      <div className="section-label">Set Day 1 Date (auto-fills all days sequentially)</div>
-      {!showForm ? (
-        <button className="link-btn" onClick={() => setShowForm(true)}>+ Set Start Date</button>
-      ) : (
-        <div>
-          <input
-            className="mini-input"
-            type="date"
-            value={startDate}
-            onChange={e => setStartDate(e.target.value)}
-          />
-          <div className="btn-row">
-            <button className="btn" disabled={saving} onClick={handleApply} style={{ flex: 1 }}>
-              {saving ? 'Applying...' : 'Apply to All Days'}
-            </button>
-            <button className="btn" onClick={() => setShowForm(false)} style={{ flex: 1 }}>
-              Cancel
-            </button>
-          </div>
+      <div className="section-label">Announcement Image</div>
+      <input
+        className="mini-input"
+        type="file"
+        accept="image/*"
+        onChange={handleFileSelect}
+        disabled={uploading}
+      />
+      {uploading && <div style={{ marginTop: '0.5rem' }}>Uploading...</div>}
+      {error && <div style={{ marginTop: '0.5rem', color: 'red' }}>{error}</div>}
+      {imageUrl && !uploading && (
+        <div style={{ marginTop: '0.75rem' }}>
+          <img src={imageUrl} alt="Announcement preview" style={{ maxWidth: '100%', borderRadius: '8px' }} />
         </div>
       )}
     </div>
