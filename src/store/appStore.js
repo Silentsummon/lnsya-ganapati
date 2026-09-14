@@ -359,7 +359,7 @@ export const useAppStore = create((set, get) => ({
 
       if (i < recipients.length - 1) {
         await new Promise(r =>
-          setTimeout(r, 3000 + Math.random() * 4000)
+          setTimeout(r, 60000)
         )
       }
     }
