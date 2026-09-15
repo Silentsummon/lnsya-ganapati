@@ -227,12 +227,13 @@ function AnnouncementsPanel({ announcementImageUrl, setAnnouncementImageUrl, sen
   const [mediaType, setMediaType] = useState('image')
   const [sending, setSending] = useState(false)
   const [result, setResult] = useState(null)
+  const [testPhone, setTestPhone] = useState('')
 
   const handleSend = async () => {
     if (!message.trim()) return
     setSending(true)
     setResult(null)
-    const res = await sendAnnouncement(message, announcementImageUrl, mediaType)
+    const res = await sendAnnouncement(message, announcementImageUrl, mediaType, testPhone)
     setSending(false)
     setResult(res)
   }
@@ -273,8 +274,22 @@ function AnnouncementsPanel({ announcementImageUrl, setAnnouncementImageUrl, sen
         </div>
       )}
 
+      <div className="section-box" style={{ marginBottom: '1.25rem' }}>
+        <div className="section-label">Test Phone (optional)</div>
+        <input
+          className="mini-input"
+          type="tel"
+          inputMode="numeric"
+          value={testPhone}
+          onChange={e => setTestPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
+          placeholder="Leave empty to send to everyone"
+          disabled={sending}
+        />
+        {testPhone && <div style={{ marginTop: '0.4rem', fontSize: '0.78rem', color: '#b45309' }}>Will send ONLY to this number, not the full list.</div>}
+      </div>
+
       <button className="btn" style={{ width: '100%' }} disabled={sending || !message.trim()} onClick={handleSend}>
-        {sending ? 'Sending...' : 'Send Announcement'}
+        {sending ? 'Sending...' : (testPhone ? 'Send Test to This Number' : 'Send Announcement')}
       </button>
 
       {result && (
