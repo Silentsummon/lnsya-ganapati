@@ -389,6 +389,35 @@ export const useAppStore = create((set, get) => ({
     set({ expenses: [data, ...expenses] })
   },
 
+  slotHolds: [],
+
+  fetchHolds: async () => {
+    const { data, error } = await supabase
+      .from('slot_holds')
+      .select('*')
+      .gt('held_at', new Date(Date.now() - 60 * 1000).toISOString())
+    if (error) { console.error('fetchHolds error:', error); return }
+    set({ slotHolds: data || [] })
+  },
+
+  holdSlot: async (dayId, slotNumber, sessionId) => {
+    const { error } = await supabase
+      .from('slot_holds')
+      .upsert([{ pooja_day_id: dayId, slot_number: slotNumber, session_id: sessionId, held_at: new Date().toISOString() }])
+    if (error) { console.error('holdSlot error:', error); return }
+    await get().fetchHolds()
+  },
+
+  releaseSlot: async (dayId, slotNumber) => {
+    const { error } = await supabase
+      .from('slot_holds')
+      .delete()
+      .eq('pooja_day_id', dayId)
+      .eq('slot_number', slotNumber)
+    if (error) { console.error('releaseSlot error:', error); return }
+    await get().fetchHolds()
+  },
+
   checkInSlot: async (dayId, slotNumber, name, phone, groupSize) => {
     const { poojaCheckins, poojasDays } = get()
     const existing = poojaCheckins[dayId] || []
@@ -402,9 +431,16 @@ export const useAppStore = create((set, get) => ({
       .single()
     if (error || !data) {
       console.error('checkInSlot error:', error)
+      if (error && error.code === '23505') {
+        return { success: false, error: 'This slot was just booked by someone else. Please pick another.' }
+      }
       return { success: false, error: 'Could not complete check-in. Please try again.' }
     }
     set({ poojaCheckins: { ...poojaCheckins, [dayId]: [...existing, data] } })
+
+    // Release the hold now that the real booking succeeded
+    await supabase.from('slot_holds').delete().eq('pooja_day_id', dayId).eq('slot_number', slotNumber)
+    await get().fetchHolds()
 
     const day = poojasDays.find(d => d.id === dayId)
     triggerPoojaConfirmation(phone, name, day?.day_number)

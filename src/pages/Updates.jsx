@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAppStore } from '../store/appStore'
 
@@ -13,7 +13,35 @@ function formatDate(dateStr) {
 
 export default function Updates() {
   const navigate = useNavigate()
-  const { poojasDays, totalDays, poojaCheckins, checkInSlot } = useAppStore()
+  const [sessionId] = useState(() => {
+    const existing = sessionStorage.getItem('pooja_session_id')
+    if (existing) return existing
+    const id = crypto.randomUUID()
+    sessionStorage.setItem('pooja_session_id', id)
+    return id
+  })
+
+  const {
+    poojasDays,
+    totalDays,
+    poojaCheckins,
+    checkInSlot,
+    slotHolds,
+    fetchHolds,
+    holdSlot,
+    releaseSlot,
+  } = useAppStore()
+
+  useEffect(() => {
+    fetchHolds()
+
+    const interval = setInterval(() => {
+      fetchHolds()
+    }, 5000)
+
+    return () => clearInterval(interval)
+  }, [fetchHolds])
+
   const visibleDays = poojasDays.filter(d => d.day_number <= totalDays)
 
   return (
@@ -21,7 +49,10 @@ export default function Updates() {
       <div className="back-btn" onClick={() => navigate('/')}>
         <span className="back-circle">&#8592;</span> Back
       </div>
-      <h1 style={{ color: '#fff', fontSize: '1.6rem', marginBottom: '1.5rem' }}>Utsav Schedule</h1>
+
+      <h1 style={{ color: '#fff', fontSize: '1.6rem', marginBottom: '1.5rem' }}>
+        Utsav Schedule
+      </h1>
 
       {visibleDays.map(day => {
         const dateLabel = formatDate(day.pooja_date)
@@ -29,9 +60,21 @@ export default function Updates() {
         const entry1 = checkins.find(c => c.slot_number === 1)
         const entry2 = checkins.find(c => c.slot_number === 2)
 
+        const hold1 = slotHolds.find(
+          h => h.pooja_day_id === day.id && h.slot_number === 1
+        )
+        const hold2 = slotHolds.find(
+          h => h.pooja_day_id === day.id && h.slot_number === 2
+        )
+
         return (
           <div className="day-card" key={day.id} style={{ padding: '1.1rem 1.3rem' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.9rem', marginBottom: '0.9rem' }}>
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.9rem',
+              marginBottom: '0.9rem'
+            }}>
               <div className="day-badge">D{day.day_number}</div>
               <div>
                 <div className="day-title">Day {day.day_number}</div>
@@ -40,11 +83,40 @@ export default function Updates() {
             </div>
 
             {day.day_number === 1 ? (
-              <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: '0.85rem', margin: 0 }}>This day has passed.</p>
+              <p style={{
+                color: 'rgba(255,255,255,0.5)',
+                fontSize: '0.85rem',
+                margin: 0
+              }}>
+                This day has passed.
+              </p>
             ) : (
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '0.7rem' }}>
-                <CheckInBox dayId={day.id} slotNumber={1} entry={entry1} checkInSlot={checkInSlot} />
-                <CheckInBox dayId={day.id} slotNumber={2} entry={entry2} checkInSlot={checkInSlot} />
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+                gap: '0.7rem'
+              }}>
+                <CheckInBox
+                  dayId={day.id}
+                  slotNumber={1}
+                  entry={entry1}
+                  hold={hold1}
+                  sessionId={sessionId}
+                  checkInSlot={checkInSlot}
+                  holdSlot={holdSlot}
+                  releaseSlot={releaseSlot}
+                />
+
+                <CheckInBox
+                  dayId={day.id}
+                  slotNumber={2}
+                  entry={entry2}
+                  hold={hold2}
+                  sessionId={sessionId}
+                  checkInSlot={checkInSlot}
+                  holdSlot={holdSlot}
+                  releaseSlot={releaseSlot}
+                />
               </div>
             )}
 
@@ -59,7 +131,12 @@ export default function Updates() {
       })}
 
       {visibleDays.length === 0 && (
-        <p style={{ color: 'rgba(255,255,255,0.4)', textAlign: 'center', padding: '3rem 0', fontSize: '0.85rem' }}>
+        <p style={{
+          color: 'rgba(255,255,255,0.4)',
+          textAlign: 'center',
+          padding: '3rem 0',
+          fontSize: '0.85rem'
+        }}>
           No days scheduled yet
         </p>
       )}
@@ -67,23 +144,75 @@ export default function Updates() {
   )
 }
 
-function CheckInBox({ dayId, slotNumber, entry, checkInSlot }) {
+function CheckInBox({
+  dayId,
+  slotNumber,
+  entry,
+  hold,
+  sessionId,
+  checkInSlot,
+  holdSlot,
+  releaseSlot
+}) {
   const [showForm, setShowForm] = useState(false)
   const [name, setName] = useState('')
   const [phone, setPhone] = useState('')
   const [groupSize, setGroupSize] = useState('2')
   const [submitting, setSubmitting] = useState(false)
+  const [holding, setHolding] = useState(false)
   const [error, setError] = useState('')
+
+  const isHeld = !!hold
+  const isHeldByMe = hold?.session_id === sessionId
+
+  const handleParticipate = async () => {
+    setError('')
+
+    if (isHeld && !isHeldByMe) {
+      setError('This slot is currently being selected by someone else. Please try another slot.')
+      return
+    }
+
+    setHolding(true)
+
+    if (!isHeldByMe) {
+      await holdSlot(dayId, slotNumber, sessionId)
+      await new Promise(resolve => setTimeout(resolve, 300))
+    }
+
+    setHolding(false)
+    setShowForm(true)
+  }
+
+  const handleCancel = async () => {
+    setShowForm(false)
+    setError('')
+
+    if (isHeldByMe) {
+      await releaseSlot(dayId, slotNumber)
+    }
+  }
 
   const handleConfirm = async () => {
     setError('')
+
     if (!name.trim() || !phone.trim()) {
       setError('Please fill in your name and phone.')
       return
     }
+
     setSubmitting(true)
-    const res = await checkInSlot(dayId, slotNumber, name.trim(), phone.trim(), parseInt(groupSize))
+
+    const res = await checkInSlot(
+      dayId,
+      slotNumber,
+      name.trim(),
+      phone.trim(),
+      parseInt(groupSize)
+    )
+
     setSubmitting(false)
+
     if (!res.success) {
       setError(res.error || 'Something went wrong.')
     }
@@ -92,14 +221,23 @@ function CheckInBox({ dayId, slotNumber, entry, checkInSlot }) {
   if (entry) {
     return (
       <div style={{
-        background: '#e9f9ee', border: '1px solid #86d9a3', borderRadius: '0.6rem',
+        background: '#e9f9ee',
+        border: '1px solid #86d9a3',
+        borderRadius: '0.6rem',
         padding: '0.8rem 1rem',
       }}>
-        <div style={{ color: '#15803d', fontWeight: 700, fontSize: '0.8rem', marginBottom: '0.2rem' }}>
+        <div style={{
+          color: '#15803d',
+          fontWeight: 700,
+          fontSize: '0.8rem',
+          marginBottom: '0.2rem'
+        }}>
           ✓ Checked In
         </div>
+
         <div style={{ color: '#166534', fontSize: '0.8rem' }}>
-          {entry.name} • {entry.group_size} {entry.group_size === 1 ? 'person' : 'people'}
+          {entry.name} • {entry.group_size}{' '}
+          {entry.group_size === 1 ? 'person' : 'people'}
         </div>
       </div>
     )
@@ -107,32 +245,89 @@ function CheckInBox({ dayId, slotNumber, entry, checkInSlot }) {
 
   return (
     <div style={{
-      background: '#fafafa', border: '1px solid #e5e5e5', borderRadius: '0.6rem',
+      background: isHeld && !isHeldByMe ? '#e5e5e5' : '#fafafa',
+      border: '1px solid #e5e5e5',
+      borderRadius: '0.6rem',
       padding: '0.8rem 1rem',
+      opacity: isHeld && !isHeldByMe ? 0.6 : 1,
     }}>
       {!showForm ? (
-        <button className="link-btn" onClick={() => setShowForm(true)} style={{ width: '100%', textAlign: 'left' }}>
-          + Participate in Pooja
+        <button
+          className="link-btn"
+          onClick={handleParticipate}
+          disabled={holding || (isHeld && !isHeldByMe)}
+          style={{ width: '100%', textAlign: 'left' }}
+        >
+          {holding ? 'Securing slot...' : '+ Participate in Pooja'}
         </button>
       ) : (
         <div>
-          <input className="mini-input" type="text" value={name} onChange={e => setName(e.target.value)} placeholder="Your name" />
-          <input className="mini-input" type="tel" value={phone} onChange={e => setPhone(e.target.value)} placeholder="Phone number" />
-          <select className="mini-input" value={groupSize} onChange={e => setGroupSize(e.target.value)}>
+          <div style={{
+            color: '#15803d',
+            fontSize: '0.75rem',
+            fontWeight: 600,
+            marginBottom: '0.5rem'
+          }}>
+            ✓ Slot secured temporarily
+          </div>
+
+          <input
+            className="mini-input"
+            type="text"
+            value={name}
+            onChange={e => setName(e.target.value)}
+            placeholder="Your name"
+          />
+
+          <input
+            className="mini-input"
+            type="tel"
+            value={phone}
+            onChange={e => setPhone(e.target.value)}
+            placeholder="Phone number"
+          />
+
+          <select
+            className="mini-input"
+            value={groupSize}
+            onChange={e => setGroupSize(e.target.value)}
+          >
             <option value="2">2 people</option>
             <option value="3">3 people</option>
             <option value="4">4 people</option>
             <option value="5">5 people</option>
           </select>
+
           <div className="btn-row">
-            <button className="btn" style={{ flex: 1 }} disabled={submitting} onClick={handleConfirm}>
+            <button
+              className="btn"
+              style={{ flex: 1 }}
+              disabled={submitting}
+              onClick={handleConfirm}
+            >
               {submitting ? 'Confirming...' : 'Confirm'}
             </button>
-            <button className="btn" style={{ flex: 1 }} onClick={() => setShowForm(false)}>
+
+            <button
+              className="btn"
+              style={{ flex: 1 }}
+              disabled={submitting}
+              onClick={handleCancel}
+            >
               Cancel
             </button>
           </div>
-          {error && <div style={{ color: '#dc2626', fontSize: '0.75rem', marginTop: '0.4rem', fontWeight: 600 }}>{error}</div>}
+
+          {error && (
+            <div style={{
+              color: '#dc2626',
+              fontSize: '0.75rem',
+              marginTop: '0.4rem',
+              fontWeight: 600
+            }}>
+              {error}
+            </div>
+          )}
         </div>
       )}
     </div>
