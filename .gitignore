@@ -5,5 +5,7 @@ dist-ssr
 .env
 .env.local
 .DS_Store
-.env.local
-gitkey echo gitkey.pub echo *.py
+gitkey
+gitkey.pub
+*.py
+*.sql
