@@ -39,10 +39,14 @@ export default function Updates() {
               </div>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '0.7rem' }}>
-              <CheckInBox dayId={day.id} slotNumber={1} entry={entry1} checkInSlot={checkInSlot} />
-              <CheckInBox dayId={day.id} slotNumber={2} entry={entry2} checkInSlot={checkInSlot} />
-            </div>
+            {day.day_number === 1 ? (
+              <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: '0.85rem', margin: 0 }}>This day has passed.</p>
+            ) : (
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '0.7rem' }}>
+                <CheckInBox dayId={day.id} slotNumber={1} entry={entry1} checkInSlot={checkInSlot} />
+                <CheckInBox dayId={day.id} slotNumber={2} entry={entry2} checkInSlot={checkInSlot} />
+              </div>
+            )}
 
             {day.announcement_title && (
               <div className="announcement-box" style={{ marginTop: '0.9rem' }}>

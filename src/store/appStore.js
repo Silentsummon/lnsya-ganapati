@@ -44,9 +44,11 @@ export const useAppStore = create((set, get) => ({
       // TEST MODE: only send to this one number
       recipients = [{ name: 'Test', phone: testPhone.trim() }]
     } else {
-      // Dedupe by phone number, skip blanks
+      const { data: extraRecipients } = await supabase.from('extra_recipients').select('name, phone')
+
+      // Dedupe by phone number, skip blanks. Chandha members + extra_recipients combined.
       const seen = new Set()
-      for (const c of chandha) {
+      for (const c of [...chandha, ...(extraRecipients || [])]) {
         const phone = (c.phone || '').trim()
         if (!phone) continue
         if (seen.has(phone)) continue

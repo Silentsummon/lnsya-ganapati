@@ -102,27 +102,8 @@ function PresidentPanel({ totalDays, setTotalDays, days, updatePoojaDay, updateE
       {presTab === 'schedule' && (
         <div>
           <div className="event-days-banner">
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <div>
-                <div className="banner-label">Overall Event Days</div>
-                <div className="banner-value">{totalDays} Days</div>
-              </div>
-              <button className="btn" style={{ fontSize: '0.68rem', padding: '0.4rem 0.8rem' }}
-                onClick={() => { setEditingTotal(!editingTotal); setTotalInput(String(totalDays)) }}>
-                {editingTotal ? 'Cancel' : 'Edit'}
-              </button>
-            </div>
-            {editingTotal && (
-              <div style={{ marginTop: '0.75rem', paddingTop: '0.75rem', borderTop: '1px solid rgba(255,255,255,0.2)' }}>
-                <input type="number" value={totalInput} onChange={e => setTotalInput(e.target.value)}
-                  onKeyDown={e => e.key === 'Enter' && (setTotalDays(parseInt(totalInput) || 0), setEditingTotal(false))}
-                  placeholder="Number of days" style={{ marginBottom: '0.5rem' }} />
-                <button className="btn" style={{ width: '100%' }}
-                  onClick={() => { setTotalDays(parseInt(totalInput) || 0); setEditingTotal(false) }}>
-                  Set Days
-                </button>
-              </div>
-            )}
+            <div className="banner-label">Overall Event Days</div>
+            <div className="banner-value">{totalDays} Days</div>
           </div>
 
           {days.length === 0 && <p style={{ color: 'rgba(255,255,255,0.45)', textAlign: 'center', padding: '2rem 0', fontSize: '0.85rem' }}>Set overall days above to get started</p>}
@@ -342,36 +323,12 @@ function PoojaSection({ days, updatePoojaDay }) {
   )
 }
 
-function PoojaDayCard({ day, isOpen, onToggle, updatePoojaDay }) {
-  const [whatToBring, setWhatToBring] = useState(day.what_to_bring || '')
-  const [poojaDate, setPoojaDate] = useState(day.pooja_date || '')
-  const [annTitle, setAnnTitle] = useState(day.announcement_title || '')
-  const [annMsg, setAnnMsg] = useState(day.announcement_message || '')
-
-  const handleSave = () => {
-    updatePoojaDay(day.id, whatToBring, annTitle, annMsg, poojaDate)
-  }
-
+function PoojaDayCard({ day }) {
   return (
     <div className="day-card">
-      <button className="day-toggle-header" onClick={onToggle}>
+      <div className="day-toggle-header">
         <div className="day-number-title" style={{ color: '#1a1a1a' }}>Day {day.day_number}{formatDate(day.pooja_date) ? ` — ${formatDate(day.pooja_date)}` : ''}</div>
-        <span className="day-chevron-big" style={{ color: '#1a1a1a', transform: isOpen ? 'rotate(90deg)' : 'none' }}>&#8250;</span>
-      </button>
-      {isOpen && (
-        <div style={{ padding: '0 1.1rem 1.1rem' }}>
-          <div className="section-label" style={{ marginTop: '0.5rem', color: '#1a1a1a' }}>Date</div>
-          <input type="date" className="mini-input" value={poojaDate} onChange={e => setPoojaDate(e.target.value)} />
-
-          <div className="section-label" style={{ marginTop: '0.5rem', color: '#1a1a1a' }}>Announcement Title</div>
-          <input type="text" className="mini-input" value={annTitle} onChange={e => setAnnTitle(e.target.value)} placeholder="Announcement title" />
-
-          <div className="section-label" style={{ marginTop: '0.5rem', color: '#1a1a1a' }}>Announcement Message</div>
-          <textarea className="mini-input" rows={2} value={annMsg} onChange={e => setAnnMsg(e.target.value)} placeholder="Announcement message" />
-
-          <button className="btn" style={{ width: '100%', marginTop: '0.4rem' }} onClick={handleSave}>Save</button>
-        </div>
-      )}
+      </div>
     </div>
   )
 }
