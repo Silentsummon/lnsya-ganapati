@@ -363,9 +363,6 @@ function PoojaDayCard({ day, isOpen, onToggle, updatePoojaDay }) {
           <div className="section-label" style={{ marginTop: '0.5rem', color: '#1a1a1a' }}>Date</div>
           <input type="date" className="mini-input" value={poojaDate} onChange={e => setPoojaDate(e.target.value)} />
 
-          <div className="section-label" style={{ marginTop: '0.5rem', color: '#1a1a1a' }}>What to Bring</div>
-          <textarea className="mini-input" rows={2} value={whatToBring} onChange={e => setWhatToBring(e.target.value)} placeholder="What to bring, instructions, etc." />
-
           <div className="section-label" style={{ marginTop: '0.5rem', color: '#1a1a1a' }}>Announcement Title</div>
           <input type="text" className="mini-input" value={annTitle} onChange={e => setAnnTitle(e.target.value)} placeholder="Announcement title" />
 
@@ -872,8 +869,6 @@ function VolunteerUpdates({ days }) {
         return (
           <div className="card" key={day.id}>
             <div className="card-title">Day {day.day_number}{dateLabel ? ` · ${dateLabel}` : ''}</div>
-            <div className="day-body-label">What to Bring</div>
-            <div className="day-body-text">{day.what_to_bring}</div>
             {day.announcement_title && (
               <div className="announcement-box">
                 <div className="announcement-title">{day.announcement_title}</div>
