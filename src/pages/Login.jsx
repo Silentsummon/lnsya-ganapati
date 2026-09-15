@@ -5,7 +5,7 @@ export default function Login({ role }) {
   const navigate = useNavigate()
   const [pin, setPin] = useState('')
   const [shake, setShake] = useState(false)
-  const correctPin = role === 'president' ? '5678' : '1234'
+  const correctPin = role === 'president' ? '0213' : '8520'
 
   const handleLogin = () => {
     if (pin === correctPin) {

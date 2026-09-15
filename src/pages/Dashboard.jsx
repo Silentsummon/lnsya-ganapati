@@ -21,6 +21,7 @@ export default function Dashboard({ forcedRole }) {
     budget, setBudget, expenses, addExpense,
     chandha, addChandha, broadcastToChandha,
     announcementImageUrl, setAnnouncementImageUrl, sendAnnouncement,
+    luckyTokens, addLuckyToken,
   } = useAppStore()
 
   const [userRole, setUserRole] = useState(forcedRole || '')
@@ -58,6 +59,7 @@ export default function Dashboard({ forcedRole }) {
           chandha={chandha} broadcastToChandha={broadcastToChandha}
           announcementImageUrl={announcementImageUrl} setAnnouncementImageUrl={setAnnouncementImageUrl}
           sendAnnouncement={sendAnnouncement}
+          luckyTokens={luckyTokens} addLuckyToken={addLuckyToken}
         />
       )}
 
@@ -84,7 +86,7 @@ export default function Dashboard({ forcedRole }) {
   )
 }
 
-function PresidentPanel({ totalDays, setTotalDays, days, updatePoojaDay, updateEvents, setAllDates, chandha, broadcastToChandha, announcementImageUrl, setAnnouncementImageUrl, sendAnnouncement }) {
+function PresidentPanel({ totalDays, setTotalDays, days, updatePoojaDay, updateEvents, setAllDates, chandha, broadcastToChandha, announcementImageUrl, setAnnouncementImageUrl, sendAnnouncement, luckyTokens, addLuckyToken }) {
   const [editingTotal, setEditingTotal] = useState(false)
   const [totalInput, setTotalInput] = useState(String(totalDays))
   const [presTab, setPresTab] = useState('schedule')
@@ -94,6 +96,7 @@ function PresidentPanel({ totalDays, setTotalDays, days, updatePoojaDay, updateE
       <div className="tabs">
         <button className={`tab ${presTab === 'schedule' ? 'active' : ''}`} onClick={() => setPresTab('schedule')}>Schedule</button>
         <button className={`tab ${presTab === 'announcements' ? 'active' : ''}`} onClick={() => setPresTab('announcements')}>Announcements</button>
+        <button className={`tab ${presTab === 'lucky' ? 'active' : ''}`} onClick={() => setPresTab('lucky')}>Lucky Tokens</button>
       </div>
 
       {presTab === 'schedule' && (
@@ -138,14 +141,90 @@ function PresidentPanel({ totalDays, setTotalDays, days, updatePoojaDay, updateE
           announcementImageUrl={announcementImageUrl}
           setAnnouncementImageUrl={setAnnouncementImageUrl}
           sendAnnouncement={sendAnnouncement}
+          luckyTokens={luckyTokens} addLuckyToken={addLuckyToken}
         />
       )}
+      {presTab === 'lucky' && (
+        <LuckyTokensPanel luckyTokens={luckyTokens} addLuckyToken={addLuckyToken} />
+      )}
+    </div>
+  )
+}
+
+function LuckyTokensPanel({ luckyTokens, addLuckyToken }) {
+  const [name, setName] = useState('')
+  const [phone, setPhone] = useState('')
+  const [submitting, setSubmitting] = useState(false)
+
+  const formatDate = (dateStr) => {
+    if (!dateStr) return '-'
+    const d = new Date(dateStr)
+    const day = String(d.getDate()).padStart(2, '0')
+    const month = String(d.getMonth() + 1).padStart(2, '0')
+    const year = d.getFullYear()
+    return `${day}/${month}/${year}`
+  }
+
+  const handleAdd = async () => {
+    if (submitting) return
+    if (!name.trim()) return
+    setSubmitting(true)
+    await addLuckyToken(name.trim(), phone.trim())
+    setName(''); setPhone('')
+    setSubmitting(false)
+  }
+
+  const exportCSV = () => {
+    const headers = ['Token No', 'Name', 'Phone', 'Date Added']
+    const rows = luckyTokens.map(t => [t.token_number, t.name, t.phone, formatDate(t.created_at)])
+    const csvContent = [headers, ...rows]
+      .map(row => row.map(val => `"${String(val ?? '').replace(/"/g, '""')}"`).join(','))
+      .join(String.fromCharCode(10))
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.setAttribute('download', `lucky-tokens-${new Date().toISOString().split('T')[0]}.csv`)
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+  }
+
+  return (
+    <div>
+      <div className="section-box" style={{ marginBottom: '1.25rem' }}>
+        <div className="section-label">Add Lucky Token Entry</div>
+        <input type="text" value={name} onChange={e => setName(e.target.value)} placeholder="Enter name" style={{ marginBottom: '0.75rem' }} />
+        <input type="tel" inputMode="numeric" value={phone} onChange={e => setPhone(e.target.value.replace(/\D/g, '').slice(0, 10))} placeholder="Enter 10-digit number" style={{ marginBottom: '0.75rem' }} />
+        <button className="btn" style={{ width: '100%' }} disabled={submitting || !name.trim()} onClick={handleAdd}>
+          {submitting ? 'Adding...' : 'Add Entry'}
+        </button>
+      </div>
+
+      <div className="btn-row" style={{ marginBottom: '1.25rem' }}>
+        <button className="btn" style={{ flex: 1, background: '#ffffff', color: '#1a1a1a', border: '1px solid #d4d4d4' }} onClick={exportCSV}>
+          Export as CSV
+        </button>
+      </div>
+
+      <div className="card">
+        <div className="card-title" style={{ color: '#1a1a1a' }}>Lucky Token Entries ({luckyTokens.length})</div>
+        {luckyTokens.length === 0 && <p style={{ color: '#6b6b6b', fontSize: '0.85rem' }}>No entries yet.</p>}
+        {luckyTokens.map(t => (
+          <div key={t.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '0.5rem 0', borderBottom: '1px solid #eee' }}>
+            <span style={{ fontWeight: 700 }}>#{t.token_number}</span>
+            <span>{t.name}</span>
+            <span>{t.phone || '-'}</span>
+          </div>
+        ))}
+      </div>
     </div>
   )
 }
 
 function AnnouncementsPanel({ announcementImageUrl, setAnnouncementImageUrl, sendAnnouncement }) {
   const [message, setMessage] = useState('')
+  const [mediaType, setMediaType] = useState('image')
   const [sending, setSending] = useState(false)
   const [result, setResult] = useState(null)
 
@@ -153,9 +232,14 @@ function AnnouncementsPanel({ announcementImageUrl, setAnnouncementImageUrl, sen
     if (!message.trim()) return
     setSending(true)
     setResult(null)
-    const res = await sendAnnouncement(message, announcementImageUrl)
+    const res = await sendAnnouncement(message, announcementImageUrl, mediaType)
     setSending(false)
     setResult(res)
+  }
+
+  const handleUploaded = (url, type) => {
+    setAnnouncementImageUrl(url)
+    setMediaType(type)
   }
 
   return (
@@ -173,13 +257,17 @@ function AnnouncementsPanel({ announcementImageUrl, setAnnouncementImageUrl, sen
         />
       </div>
 
-      <ImageUploader imageUrl={announcementImageUrl} onUploaded={setAnnouncementImageUrl} />
+      <ImageUploader imageUrl={announcementImageUrl} mediaType={mediaType} onUploaded={handleUploaded} />
 
       {(message.trim() || announcementImageUrl) && (
         <div className="section-box" style={{ marginBottom: '1.25rem' }}>
           <div className="section-label">Preview</div>
           {announcementImageUrl && (
-            <img src={announcementImageUrl} alt="Preview" style={{ maxWidth: '100%', borderRadius: '8px', marginBottom: '0.5rem' }} />
+            mediaType === 'video' ? (
+              <video src={announcementImageUrl} controls style={{ maxWidth: '100%', borderRadius: '8px', marginBottom: '0.5rem' }} />
+            ) : (
+              <img src={announcementImageUrl} alt="Preview" style={{ maxWidth: '100%', borderRadius: '8px', marginBottom: '0.5rem' }} />
+            )
           )}
           {message.trim() && <p style={{ whiteSpace: 'pre-wrap' }}>{message}</p>}
         </div>
@@ -399,7 +487,7 @@ function BroadcastPanel({ chandha, broadcastToChandha }) {
   )
 }
 
-function ImageUploader({ imageUrl, onUploaded }) {
+function ImageUploader({ imageUrl, mediaType, onUploaded }) {
   const [uploading, setUploading] = useState(false)
   const [error, setError] = useState('')
 
@@ -407,8 +495,11 @@ function ImageUploader({ imageUrl, onUploaded }) {
     const file = e.target.files[0]
     if (!file) return
 
-    if (!file.type.startsWith('image/')) {
-      setError('Please select an image file.')
+    const isImage = file.type.startsWith('image/')
+    const isVideo = file.type.startsWith('video/') || file.name.toLowerCase().endsWith('.mp4')
+
+    if (!isImage && !isVideo) {
+      setError('Please select an image or video (mp4) file.')
       return
     }
 
@@ -433,7 +524,7 @@ function ImageUploader({ imageUrl, onUploaded }) {
         .from('announcement-images')
         .getPublicUrl(fileName)
 
-      onUploaded(urlData.publicUrl)
+      onUploaded(urlData.publicUrl, isVideo ? 'video' : 'image')
     } catch (err) {
       setError('Upload failed: ' + err.message)
     } finally {
@@ -443,11 +534,11 @@ function ImageUploader({ imageUrl, onUploaded }) {
 
   return (
     <div className="section-box" style={{ marginBottom: '1.25rem' }}>
-      <div className="section-label">Announcement Image</div>
+      <div className="section-label">Announcement Image or Video</div>
       <input
         className="mini-input"
         type="file"
-        accept="image/*"
+        accept="image/*,video/mp4"
         onChange={handleFileSelect}
         disabled={uploading}
       />
@@ -455,7 +546,11 @@ function ImageUploader({ imageUrl, onUploaded }) {
       {error && <div style={{ marginTop: '0.5rem', color: 'red' }}>{error}</div>}
       {imageUrl && !uploading && (
         <div style={{ marginTop: '0.75rem' }}>
-          <img src={imageUrl} alt="Announcement preview" style={{ maxWidth: '100%', borderRadius: '8px' }} />
+          {mediaType === 'video' ? (
+            <video src={imageUrl} controls style={{ maxWidth: '100%', borderRadius: '8px' }} />
+          ) : (
+            <img src={imageUrl} alt="Announcement preview" style={{ maxWidth: '100%', borderRadius: '8px' }} />
+          )}
         </div>
       )}
     </div>

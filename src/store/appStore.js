@@ -25,35 +25,43 @@ export const useAppStore = create((set, get) => ({
   budget: 0,
   expenses: [],
   chandha: [],
+  luckyTokens: [],
   loading: true,
   error: null,
   announcementImageUrl: null,
   setAnnouncementImageUrl: (url) => set({ announcementImageUrl: url }),
+  announcementMediaType: 'image',
+  setAnnouncementMediaType: (type) => set({ announcementMediaType: type }),
 
-  sendAnnouncement: async (message, imageUrl) => {
+  sendAnnouncement: async (message, mediaUrl, mediaType, testPhone) => {
     const { chandha } = get()
     if (!message || !message.trim()) {
       return { success: false, error: 'Message is empty' }
     }
 
-    // Dedupe by phone number, skip blanks
-    const seen = new Set()
-    const recipients = []
-    for (const c of chandha) {
-      const phone = (c.phone || '').trim()
-      if (!phone) continue
-      if (seen.has(phone)) continue
-      seen.add(phone)
-      recipients.push({ name: c.name, phone })
+    let recipients = []
+    if (testPhone && testPhone.trim()) {
+      // TEST MODE: only send to this one number
+      recipients = [{ name: 'Test', phone: testPhone.trim() }]
+    } else {
+      // Dedupe by phone number, skip blanks
+      const seen = new Set()
+      for (const c of chandha) {
+        const phone = (c.phone || '').trim()
+        if (!phone) continue
+        if (seen.has(phone)) continue
+        seen.add(phone)
+        recipients.push({ name: c.name, phone })
+      }
     }
 
-    let imageBlob = null
-    if (imageUrl) {
+    let mediaBlob = null
+    if (mediaUrl) {
       try {
-        const res = await fetch(imageUrl)
-        imageBlob = await res.blob()
+        const res = await fetch(mediaUrl)
+        mediaBlob = await res.blob()
       } catch (err) {
-        console.warn('Failed to fetch announcement image for sending:', err.message)
+        console.warn('Failed to fetch announcement media for sending:', err.message)
       }
     }
 
@@ -64,12 +72,20 @@ export const useAppStore = create((set, get) => ({
     for (const r of recipients) {
       try {
         let res
-        if (imageBlob) {
+        if (mediaBlob) {
           const formData = new FormData()
           formData.append('phoneNumber', r.phone)
-          const file = new File([imageBlob], 'announcement.jpg', { type: imageBlob.type || 'image/jpeg' })
+
+          let file
+          if (mediaType === 'video') {
+            // Explicitly force video/mp4, matching the working reference implementation
+            file = new File([mediaBlob], 'announcement.mp4', { type: 'video/mp4' })
+          } else {
+            file = new File([mediaBlob], 'announcement.jpg', { type: mediaBlob.type || 'image/jpeg' })
+          }
           formData.append('file', file)
           formData.append('caption', message)
+
           res = await fetch('https://whatsapp.navyukth.tech/api/send-media', {
             method: 'POST',
             headers: { 'X-API-Key': 'Wx7qWhDE0QnHm8kj7QdR8U9eGZQxwnMWxnmIW7jJXfY=' },
@@ -103,6 +119,30 @@ export const useAppStore = create((set, get) => ({
     }
 
     return { success: true, total: recipients.length, sent, failed, failedRecipients }
+  },
+
+  fetchLuckyTokens: async () => {
+    const { eventId } = get()
+    if (!eventId) return
+    const { data, error } = await supabase
+      .from('lucky_tokens')
+      .select('*')
+      .eq('event_id', eventId)
+      .order('token_number')
+    if (error) { console.error('fetchLuckyTokens error:', error); return }
+    set({ luckyTokens: data || [] })
+  },
+
+  addLuckyToken: async (name, phone) => {
+    const { eventId, luckyTokens } = get()
+    if (!eventId) return
+    const { data, error } = await supabase
+      .from('lucky_tokens')
+      .insert([{ event_id: eventId, name, phone }])
+      .select()
+      .single()
+    if (error || !data) { console.error('addLuckyToken error:', error); return }
+    set({ luckyTokens: [...luckyTokens, data] })
   },
 
   init: async () => {
@@ -189,6 +229,13 @@ export const useAppStore = create((set, get) => ({
           .eq('event_id', event.id)
           .order('created_at', { ascending: false })
         set({ chandha: chandha || [] })
+
+        const { data: luckyTokensInit } = await supabase
+          .from('lucky_tokens')
+          .select('*')
+          .eq('event_id', event.id)
+          .order('token_number')
+        set({ luckyTokens: luckyTokensInit || [] })
       }
 
       set({ loading: false })
@@ -455,3 +502,4 @@ export const useAppStore = create((set, get) => ({
     return get().broadcastToChandha(message, null, onProgress)
   },
 }))
+
