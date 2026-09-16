@@ -123,6 +123,18 @@ export const useAppStore = create((set, get) => ({
     return { success: true, total: recipients.length, sent, failed, failedRecipients }
   },
 
+  galleryItems: [],
+
+  fetchGalleryItems: async () => {
+    const { data, error } = await supabase
+      .from('gallery_items')
+      .select('*')
+      .order('day_number')
+      .order('created_at')
+    if (error) { console.error('fetchGalleryItems error:', error); return }
+    set({ galleryItems: data || [] })
+  },
+
   fetchLuckyTokens: async () => {
     const { eventId } = get()
     if (!eventId) return

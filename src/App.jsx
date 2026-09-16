@@ -4,6 +4,7 @@ import { useAppStore } from './store/appStore'
 import Home from './pages/Home'
 import Updates from './pages/Updates'
 import Events from './pages/Events'
+import Gallery from './pages/Gallery'
 import Roles from './pages/Roles'
 import Login from './pages/Login'
 import Dashboard from './pages/Dashboard'
@@ -74,6 +75,7 @@ export default function App() {
         <Route path="/" element={<Home />} />
         <Route path="/updates" element={<Updates />} />
         <Route path="/events" element={<Events />} />
+        <Route path="/gallery" element={<Gallery />} />
         <Route path="/roles" element={<Roles />} />
         <Route path="/president-pin" element={<Login role="president" />} />
         <Route path="/treasurer-pin" element={<Login role="treasurer" />} />

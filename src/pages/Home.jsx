@@ -37,6 +37,7 @@ export default function Home() {
         <h2>Ganpati Celebration</h2>
         <button className="updates-btn" onClick={() => navigate('/updates')}>VIEW UTSAV SCHEDULE</button>
         <button className="updates-btn" style={{ marginTop: '0.75rem' }} onClick={() => navigate('/events')}>EVENTS</button>
+        <button className="updates-btn" style={{ marginTop: '0.75rem' }} onClick={() => navigate('/gallery')}>GALLERY</button>
       </div>
 
       <div
