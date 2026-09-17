@@ -26,7 +26,7 @@ export default function Events() {
       {visibleDays.map(day => {
         const isOpen = expandedId === day.id
         const longDate = formatLongDate(day.pooja_date)
-        const events = (day.events_text || '').split('\n').map(e => e.trim()).filter(Boolean)
+
 
         return (
           <div className="day-card" key={day.id}>
@@ -42,12 +42,10 @@ export default function Events() {
             {isOpen && (
               <div className="day-body">
                 <div className="day-body-section">
-                  {events.length > 0 ? (
-                    events.map((ev, i) => (
-                      <div key={i} className="day-body-text" style={{ marginBottom: '0.35rem' }}>
-                        • {ev}
-                      </div>
-                    ))
+                  {day.events_text && day.events_text.trim() ? (
+                    <div className="day-body-text" style={{ whiteSpace: 'pre-wrap' }}>
+                      {day.events_text}
+                    </div>
                   ) : (
                     <div className="day-body-text" style={{ opacity: 0.6 }}>
                       No events scheduled for this day.
