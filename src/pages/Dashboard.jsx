@@ -21,7 +21,7 @@ export default function Dashboard({ forcedRole }) {
     budget, setBudget, expenses, addExpense,
     chandha, addChandha, broadcastToChandha,
     announcementImageUrl, setAnnouncementImageUrl, sendAnnouncement,
-    luckyTokens, addLuckyToken,
+    luckyTokens, addLuckyToken, getRecipients,
   } = useAppStore()
 
   const [userRole, setUserRole] = useState(forcedRole || '')
@@ -60,6 +60,7 @@ export default function Dashboard({ forcedRole }) {
           announcementImageUrl={announcementImageUrl} setAnnouncementImageUrl={setAnnouncementImageUrl}
           sendAnnouncement={sendAnnouncement}
           luckyTokens={luckyTokens} addLuckyToken={addLuckyToken}
+          getRecipients={getRecipients}
         />
       )}
 
@@ -86,7 +87,7 @@ export default function Dashboard({ forcedRole }) {
   )
 }
 
-function PresidentPanel({ totalDays, setTotalDays, days, updatePoojaDay, updateEvents, setAllDates, chandha, broadcastToChandha, announcementImageUrl, setAnnouncementImageUrl, sendAnnouncement, luckyTokens, addLuckyToken }) {
+function PresidentPanel({ totalDays, setTotalDays, days, updatePoojaDay, updateEvents, setAllDates, chandha, broadcastToChandha, announcementImageUrl, setAnnouncementImageUrl, sendAnnouncement, luckyTokens, addLuckyToken, getRecipients }) {
   const [editingTotal, setEditingTotal] = useState(false)
   const [totalInput, setTotalInput] = useState(String(totalDays))
   const [presTab, setPresTab] = useState('schedule')
@@ -123,6 +124,7 @@ function PresidentPanel({ totalDays, setTotalDays, days, updatePoojaDay, updateE
           setAnnouncementImageUrl={setAnnouncementImageUrl}
           sendAnnouncement={sendAnnouncement}
           luckyTokens={luckyTokens} addLuckyToken={addLuckyToken}
+          getRecipients={getRecipients}
         />
       )}
       {presTab === 'lucky' && (
@@ -203,12 +205,22 @@ function LuckyTokensPanel({ luckyTokens, addLuckyToken }) {
   )
 }
 
-function AnnouncementsPanel({ announcementImageUrl, setAnnouncementImageUrl, sendAnnouncement }) {
+function AnnouncementsPanel({ announcementImageUrl, setAnnouncementImageUrl, sendAnnouncement, getRecipients }) {
   const [message, setMessage] = useState('')
   const [mediaType, setMediaType] = useState('image')
   const [sending, setSending] = useState(false)
   const [result, setResult] = useState(null)
   const [testPhone, setTestPhone] = useState('')
+  const [recipientCount, setRecipientCount] = useState(null)
+  const [countLoading, setCountLoading] = useState(false)
+
+  useEffect(() => {
+    setCountLoading(true)
+    getRecipients().then(list => {
+      setRecipientCount(list.length)
+      setCountLoading(false)
+    })
+  }, [])
 
   const handleSend = async () => {
     if (!message.trim()) return
@@ -268,6 +280,12 @@ function AnnouncementsPanel({ announcementImageUrl, setAnnouncementImageUrl, sen
         />
         {testPhone && <div style={{ marginTop: '0.4rem', fontSize: '0.78rem', color: '#b45309' }}>Will send ONLY to this number, not the full list.</div>}
       </div>
+
+      {!testPhone && (
+        <div style={{ marginBottom: '0.75rem', fontSize: '0.82rem', color: '#6b6b6b' }}>
+          {countLoading ? 'Checking recipients...' : `This will send to ${recipientCount} people.`}
+        </div>
+      )}
 
       <button className="btn" style={{ width: '100%' }} disabled={sending || !message.trim()} onClick={handleSend}>
         {sending ? 'Sending...' : (testPhone ? 'Send Test to This Number' : 'Send Announcement')}
@@ -365,9 +383,16 @@ function EventsSection({ days, updateEvents }) {
 
 function EventsDayCard({ day, isOpen, onToggle, updateEvents }) {
   const [eventsText, setEventsText] = useState(day.events_text || '')
+  const [saving, setSaving] = useState(false)
+  const [saved, setSaved] = useState(false)
 
-  const handleSave = () => {
-    updateEvents(day.id, eventsText)
+  const handleSave = async () => {
+    setSaving(true)
+    setSaved(false)
+    await updateEvents(day.id, eventsText)
+    setSaving(false)
+    setSaved(true)
+    setTimeout(() => setSaved(false), 2000)
   }
 
   return (
@@ -378,15 +403,17 @@ function EventsDayCard({ day, isOpen, onToggle, updateEvents }) {
       </button>
       {isOpen && (
         <div style={{ padding: '0 1.1rem 1.1rem' }}>
-          <div className="section-label" style={{ marginTop: '0.5rem', color: '#1a1a1a' }}>Events (one per line)</div>
+          <div className="section-label" style={{ marginTop: '0.5rem', color: '#1a1a1a' }}>Events</div>
           <textarea
             className="mini-input"
             rows={5}
             value={eventsText}
             onChange={e => setEventsText(e.target.value)}
-            placeholder="Ganesh Pooja, Cultural Program, Bhajan, Dinner / Prasadam (one per line)"
+            placeholder="Write your events for the day here..."
           />
-          <button className="btn" style={{ width: '100%', marginTop: '0.4rem' }} onClick={handleSave}>Save</button>
+          <button className="btn" style={{ width: '100%', marginTop: '0.4rem' }} disabled={saving} onClick={handleSave}>
+            {saving ? 'Saving...' : saved ? 'Saved ✓' : 'Save'}
+          </button>
         </div>
       )}
     </div>

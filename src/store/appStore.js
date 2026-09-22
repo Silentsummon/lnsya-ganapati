@@ -33,6 +33,22 @@ export const useAppStore = create((set, get) => ({
   announcementMediaType: 'image',
   setAnnouncementMediaType: (type) => set({ announcementMediaType: type }),
 
+  getRecipients: async () => {
+    const { chandha } = get()
+    const { data: extraRecipients } = await supabase.from('extra_recipients').select('name, phone')
+    const { data: luckyTokenRecipients } = await supabase.from('lucky_tokens').select('name, phone')
+    const seen = new Set()
+    const recipients = []
+    for (const c of [...chandha, ...(extraRecipients || []), ...(luckyTokenRecipients || [])]) {
+      const phone = (c.phone || '').trim()
+      if (!phone) continue
+      if (seen.has(phone)) continue
+      seen.add(phone)
+      recipients.push({ name: c.name, phone })
+    }
+    return recipients
+  },
+
   sendAnnouncement: async (message, mediaUrl, mediaType, testPhone) => {
     const { chandha } = get()
     if (!message || !message.trim()) {
