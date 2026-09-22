@@ -45,10 +45,11 @@ export const useAppStore = create((set, get) => ({
       recipients = [{ name: 'Test', phone: testPhone.trim() }]
     } else {
       const { data: extraRecipients } = await supabase.from('extra_recipients').select('name, phone')
+      const { data: luckyTokenRecipients } = await supabase.from('lucky_tokens').select('name, phone')
 
-      // Dedupe by phone number, skip blanks. Chandha members + extra_recipients combined.
+      // Dedupe by phone number, skip blanks. Chandha + extra_recipients + lucky_tokens combined.
       const seen = new Set()
-      for (const c of [...chandha, ...(extraRecipients || [])]) {
+      for (const c of [...chandha, ...(extraRecipients || []), ...(luckyTokenRecipients || [])]) {
         const phone = (c.phone || '').trim()
         if (!phone) continue
         if (seen.has(phone)) continue
@@ -489,10 +490,12 @@ export const useAppStore = create((set, get) => ({
       // TEST MODE: only send to this one number.
       recipients = [{ name: 'Test', phone: testPhone.trim() }]
     } else {
-      // Dedupe by phone number, skip blanks.
+      const { data: luckyTokenRecipients } = await supabase.from('lucky_tokens').select('name, phone')
+
+      // Dedupe by phone number, skip blanks. Chandha + lucky_tokens combined.
       const seen = new Set()
 
-      for (const c of chandha) {
+      for (const c of [...chandha, ...(luckyTokenRecipients || [])]) {
         const phone = (c.phone || '').trim()
         if (!phone) continue
         if (seen.has(phone)) continue
@@ -552,4 +555,5 @@ export const useAppStore = create((set, get) => ({
     return get().broadcastToChandha(message, null, onProgress)
   },
 }))
+
 
