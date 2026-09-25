@@ -13,9 +13,8 @@ npm run dev
 Open http://localhost:5173
 
 ## Login PINs
-- President: 5678
-- Treasurer: 1234
-- Volunteer: 9999
+- President: 0213
+- Treasurer: 8520
 
 ## Deploy
 ```bash
